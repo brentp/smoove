@@ -1,0 +1,15 @@
+*.fa
+*.bam
+*.vcf
+root/
+htslib/
+samtools/
+bcftools/
+data/
+*.bedpe
+lumpy-sv
+*.root
+*.bedpe
+*.histo
+*.fai
+*.cnvnator
