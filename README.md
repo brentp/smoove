@@ -23,6 +23,15 @@ It requires:
 5. correct the reference allele (lumpy always puts 'N')
 6. stream output of lumpy directly into multiple svtyper processes for parallel-by-region genotyping while lumpy is still running.
 
+# installation
+
+I will release a binary shortly, meanwhile, you can get this and all dependencies via (a large) docker image:
+
+```
+docker pull brentp/lumpy-smoother
+docker run -it brentp/lumpy-smoother -h
+```
+
 # usage
 
 run `lumpy-smoother -h` for full usage
@@ -31,6 +40,7 @@ run `lumpy-smoother -h` for full usage
 lumpy-smoother \
         -n my-project \                        # arbitrary project name for file prefixes
         -f $reference \
+        --outdir results \
         --processes 10 \                       # parallelize with this many processors.
         --exclude low-complexity-regions.bed \ # see: https://github.com/hall-lab/speedseq/tree/master/annotations 
         data/*.bam                             # any number of BAM or CRAM files
