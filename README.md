@@ -16,7 +16,8 @@ It requires:
 `lumpy-smoother` will:
 
 1. parallelize calls to `lumpy_filter` to extract split and discordant reads required by lumpy
-2. further filter `lumpy_filter` calls to remove high-coverage, spurious regions.
+2. further filter `lumpy_filter` calls to remove high-coverage, spurious regions;
+   this will make lumpy faster and less memory-hungry.
 3. parallelize calling cnvnator if it is on the $PATH, including splitting the reference as it requires.
    calls to `lumpy_filter` and `cnvnator` are in the same process-pool for maximum efficiency
 4. calculate per-sample metrics for mean, standard deviation, and distribution of insert size as required by lumpy.
@@ -48,8 +49,6 @@ lumpy-smoother \
 
 # TODO
 
-+ [X] further filter lumpy-filter output to remove bad regions with lots of spurious signals using [mosdepth](https://github.com/brentp/mosdepth)
-      and then filtering split and discordant bams to remove high-coverage regions.
 + [ ] annotate high-quality calls
 + [ ] (unlikely) isolate steps so that users can call, e.g.: 
     lumpy-smoother cnvs
@@ -60,7 +59,7 @@ lumpy-smoother \
 
 # limitations
 
-Until item 3 above is done, this is limited to cohorts of ~ 1 dozen or so. Once item 1 is done, this will go up to 30-40.
+Until item 3 above is done, this is limited to cohorts of ~ 20-30 or so.
 
 # see also
 
