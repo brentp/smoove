@@ -11,7 +11,10 @@ It requires:
  + [cnvnator](https://github.com/abyzovlab/CNVnator): makes per-sample CNV calls that lumpy can use
  + [svtyper](https://github.com/hall-lab/svtyper): to genotypes SVs
  + [samtools](https://github.com/samtools/samtools): for CRAM support
+ + [gsort](https://github.com/brentp/gsort): to sort final VCF
+ + [bgzip+tabix](https://github.com/samtools/htslib): to compress and index final VCF
 
+ Running `lumpy-smoother -h` will show which of these are found so they can be added to the PATH as needed.
 
 `lumpy-smoother` will:
 
@@ -23,6 +26,7 @@ It requires:
 4. calculate per-sample metrics for mean, standard deviation, and distribution of insert size as required by lumpy.
 5. correct the reference allele (lumpy always puts 'N')
 6. stream output of lumpy directly into multiple svtyper processes for parallel-by-region genotyping while lumpy is still running.
+7. sort, compress, and index final VCF.
 
 # installation
 

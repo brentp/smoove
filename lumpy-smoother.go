@@ -28,6 +28,22 @@ import (
 	"github.com/valyala/fasttemplate"
 )
 
+type Logger struct {
+	*log.Logger
+}
+
+func (l *Logger) Write(b []byte) (int, error) {
+	l.Logger.Printf(string(b))
+	return len(b), nil
+}
+
+var logger *Logger
+
+func init() {
+	l := log.New(os.Stderr, "[lumpy-smoother] ", log.Ldate|log.Ltime)
+	logger = &Logger{Logger: l}
+}
+
 type cliargs struct {
 	Processes int      `arg:"-p,help:number of processes to use."`
 	Name      string   `arg:"-n,required,help:project name used in output files."`
@@ -54,9 +70,13 @@ your $PATH. Only those with '*' are required.
 
   [{{lumpy}}] lumpy*
   [{{lumpy_filter}}] lumpy_filter*
-  [{{cnvnator}}] cnvnator
-  [{{samtools}}] samtools
-  [{{mosdepth}}] mosdepth
+  [{{cnvnator}}] cnvnator [per-sample CNV calls]
+  [{{samtools}}] samtools [only required for CRAM input]
+  [{{mosdepth}}] mosdepth [extra filtering of split and discordant files for better scaling]
+  [{{svtyper}}] svtyper [genotype SV calls]
+  [{{gsort}}] gsort [(sort)  ->  compress   ->  index ]
+  [{{bgzip}}] bgzip [ sort   -> (compress) ->   index ]
+  [{{tabix}}] tabix [ sort   ->  compress   -> (index)]
 `
 	t := fasttemplate.New(tmpl, "{{", "}}")
 
@@ -66,6 +86,10 @@ your $PATH. Only those with '*' are required.
 		"lumpy_filter": has_prog("lumpy_filter"),
 		"samtools":     has_prog("samtools"),
 		"mosdepth":     has_prog("mosdepth"),
+		"svtyper":      has_prog("svtyper"),
+		"gsort":        has_prog("gsort"),
+		"bgzip":        has_prog("bgzip"),
+		"tabix":        has_prog("tabix"),
 	}
 
 	return t.ExecuteString(vars)
@@ -98,7 +122,7 @@ type cnvargs struct {
 	Reference string
 }
 
-const SVTYPER_LINES = 150
+const SVTYPER_LINES = 250
 
 const cnvnator_cmd = `
 set -euo pipefail
@@ -119,7 +143,7 @@ cnvnator -root {{.Sample}}.root -call {{.Bin}} > {{.Sample}}.cnvnator
 func cnvnator(bam filtered, chunks []string, ref string, outdir string, bin int) string {
 	f := outdir + "/" + bam.sample + ".cnvnator"
 	if xopen.Exists(f) {
-		log.Println("using existing cnvnator output:", f)
+		logger.Println("using existing cnvnator output:", f)
 		return ""
 	}
 
@@ -321,7 +345,7 @@ func processor(cmds chan string) chan bool {
 		for c := range process.Runner(cmds, make(chan bool), &process.Options{}) {
 			if c.ExitCode() != 0 {
 				anyError = c.Err
-				log.Println(c.Err)
+				logger.Println(c.Err)
 				break
 			}
 			c.Cleanup()
@@ -338,7 +362,7 @@ func processor(cmds chan string) chan bool {
 }
 
 func bam_stats(bams []filtered, fasta string, outdir string) {
-	os.Stderr.Write([]byte(fmt.Sprintf("[lumpy-smoother] calculating bam stats for %d bams\n", len(bams))))
+	logger.Printf("calculating bam stats for %d bams\n", len(bams))
 	for i, f := range bams {
 		br, err := NewReader(f.xam, 2, fasta)
 		check(err)
@@ -384,7 +408,7 @@ func NewReader(path string, rd int, fasta string) (*bam.Reader, error) {
 
 	} else {
 		cmd := exec.Command("samtools", "view", "-T", fasta, "-u", path)
-		cmd.Stderr = os.Stderr
+		cmd.Stderr = logger
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {
 			return nil, err
@@ -423,7 +447,7 @@ func run_lumpy(bams []filtered, fa string, outdir string, has_cnvnator bool, exc
 		panic("[lumpy-smoother] lumpy not found on path")
 	}
 
-	lumpy_tmpl := fmt.Sprintf("set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 -P %s ", exclude)
+	lumpy_tmpl := fmt.Sprintf("set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 %s ", exclude)
 	pe_tmpl := "-pe id:{{.Sample}},bam_file:{{.DiscPath}},histo_file:{{.HistPath}},mean:{{.Mean}},stdev:{{.Std}},read_length:{{.ReadLength}},min_non_overlap:{{.ReadLength}},discordant_z:4,back_distance:30,weight:1,min_mapping_threshold:20 "
 	sr_tmpl := "-sr id:{{.Sample}},bam_file:{{.SplitPath}},back_distance:10,weight:1,min_mapping_threshold:20 "
 
@@ -445,7 +469,7 @@ func run_lumpy(bams []filtered, fa string, outdir string, has_cnvnator bool, exc
 
 	cmdStr := lumpy_tmpl + buf.String()
 	f, err := os.Create(outdir + "/" + name + "-lumpy-cmd.sh")
-	os.Stderr.WriteString("[lumpy-smoother] wrote lumpy command to " + f.Name() + "\n")
+	logger.Write([]byte("wrote lumpy command to " + f.Name()))
 	check(err)
 	f.WriteString(cmdStr + "\n")
 	f.Close()
@@ -471,8 +495,8 @@ func svtyper(vcf, outdir, reference, exclude, lib string, bams []filtered) strin
 	cmd := fmt.Sprintf("svtyper -B %s %s --max_reads 1000 -T %s -l %s -o %s", strings.Join(bam_paths, ","), vcf, reference, lib, t.Name())
 
 	p := exec.Command("bash", "-c", cmd)
-	p.Stderr = os.Stderr
-	p.Stdout = os.Stdout
+	p.Stderr = logger
+	p.Stdout = logger
 	check(p.Start())
 	check(p.Wait())
 
@@ -493,13 +517,13 @@ func main() {
 	pdone := processor(cmds) // processor executes the bash commands as it gets them.
 
 	lumpy_filter_done, splits := lumpy_filters(cli.Bams, cli.OutDir, cli.Name, cmds)
-	fmt.Fprintln(os.Stderr, "[lumpy-smoother] sent lumpy_filter commands")
+	fmt.Fprintln(logger, "sent lumpy_filter commands")
 	bam_stats(splits, cli.Fasta, cli.OutDir)
 
 	has_cnvnator := false
 	if _, err := exec.LookPath("cnvnator"); err == nil {
 		has_cnvnator = true
-		fmt.Fprintln(os.Stderr, "[lumpy-smoother] sending cnvnator commands")
+		fmt.Fprintln(logger, "sending cnvnator commands")
 		<-cnvnators(splits, cli.Fasta, cli.OutDir, 500, cmds)
 	}
 	<-lumpy_filter_done
@@ -513,7 +537,41 @@ func main() {
 	remove_high_depths(splits, cli.MaxDepth)
 
 	p := run_lumpy(splits, cli.Fasta, cli.OutDir, has_cnvnator, cli.Exclude, cli.Name)
-	run_svtypers(p, cli.OutDir, cli.Fasta, cli.Exclude, splits, cli.Name)
+	vcf := run_svtypers(p, cli.OutDir, cli.Fasta, cli.Exclude, splits, cli.Name)
+
+	vcf_sort(vcf, cli.Fasta)
+
+}
+
+func vcf_sort(vcf string, reference string) {
+	if _, err := exec.LookPath("bgzip"); err != nil {
+		logger.Printf("bgzip not found. can't sort and index")
+		return
+	}
+	if _, err := exec.LookPath("gsort"); err != nil {
+		logger.Printf("gsort not found. can't sort and index")
+		return
+	}
+	if _, err := exec.LookPath("tabix"); err != nil {
+		logger.Printf("tabix not found. can't index")
+	}
+
+	tmpl := fasttemplate.New(`
+set -euo pipefail
+gsort {{vcf}} {{reference}}.fai | bgzip -c > {{vcf}}.tmp.vcf.gz
+mv {{vcf}}.tmp.vcf.gz {{vcf}}.gz
+set +e
+tabix {{vcf}}.gz
+set -e
+rm {{vcf}}`, "{{", "}}")
+	cmd := tmpl.ExecuteString(map[string]interface{}{"vcf": vcf, "reference": reference})
+
+	p := exec.Command("bash", "-c", cmd)
+	p.Stdout = logger
+	p.Stderr = logger
+	check(p.Run())
+
+	logger.Printf("sorted and indexed final vcf at: %s", vcf+".gz")
 
 }
 
@@ -552,37 +610,40 @@ func fixReference(line string, fa *faidx.Faidx) string {
 	return strings.Join(toks, "\t")
 }
 
-func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams []filtered, name string) {
+type lockedWriter struct {
+	mu *sync.Mutex
+	*xopen.Writer
+	i int
+}
+
+func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams []filtered, name string) string {
 	// make n svtyper workers
 	vcfch := make(chan string, 1)
-	svtvcfs := make([]string, 0, 20)
 
-	var mu sync.Mutex
 	fa, err := faidx.New(fasta)
 	check(err)
 	defer fa.Close()
 
 	lumpyf, err := xopen.Wopen(outdir + "/" + name + "-lumpy.vcf")
 	check(err)
-	os.Stderr.WriteString("[lumpy-smoother] writing lumpy output to:" + lumpyf.Name() + "\n")
+	fmt.Fprintf(logger, "writing lumpy output to:"+lumpyf.Name()+"\n")
 	defer lumpyf.Close()
 	var wg sync.WaitGroup
 	lib := outdir + "/" + name + "-svtyper.lib"
 
 	hasSVTyper := false
-	var fsv *xopen.Writer
+	var svf lockedWriter
 	if _, err := exec.LookPath("svtyper"); err == nil {
 		hasSVTyper = true
 		// processing is done, now write the final output.
-		var err error
-		fsv, err = xopen.Wopen(outdir + "/" + name + "-svtyper.vcf")
+		tmp, err := xopen.Wopen(outdir + "/" + name + "-svtyper.vcf")
 		check(err)
-		defer fsv.Close()
+		svf = lockedWriter{mu: &sync.Mutex{}, Writer: tmp}
+		defer tmp.Close()
 
-		os.Stderr.WriteString("[lumpy-smoother] writing svtyper output to:" + fsv.Name() + "\n")
+		fmt.Fprintln(logger, "writing svtyper output to:"+svf.Name()+"\n")
 	} else {
-		os.Stderr.WriteString("[lumpy-smoother] svtyper not found on path, not genotyping\n")
-
+		fmt.Fprint(logger, "svtyper not found on path, not genotyping\n")
 	}
 
 	// need to first run svtyper once to calculate library stats
@@ -606,10 +667,11 @@ func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams
 		go func() {
 			libwg.Wait()
 			for vcf := range vcfch {
-				svvcf := svtyper(vcf, outdir, fasta, exclude, lib, bams)
-				mu.Lock()
-				svtvcfs = append(svtvcfs, svvcf)
-				mu.Unlock()
+				svtvcf := svtyper(vcf, outdir, fasta, exclude, lib, bams)
+				svf.mu.Lock()
+				writeSVT(svf, svtvcf, svf.i)
+				svf.i++
+				svf.mu.Unlock()
 			}
 			wg.Done()
 		}()
@@ -665,22 +727,31 @@ func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams
 	if err := p.Wait(); err != nil {
 		log.Fatal(err)
 	}
-
-	for i, vcf := range svtvcfs {
-		defer os.Remove(vcf)
-		br, err := xopen.Ropen(vcf)
-		check(err)
-		for {
-			line, err := br.ReadString('\n')
-			if line != "" {
-				if (line[0] == '#' && i == 0) || line[0] != '#' {
-					fsv.WriteString(line)
-				}
-			}
-			if err == io.EOF {
-				break
-			}
-			check(err)
-		}
+	if hasSVTyper {
+		return svf.Name()
 	}
+	return lumpyf.Name()
+}
+
+func writeSVT(w io.Writer, vcf string, i int) {
+
+	defer os.Remove(vcf)
+	br, err := xopen.Ropen(vcf)
+	check(err)
+	for {
+		line, err := br.ReadString('\n')
+		if line != "" {
+			if (line[0] == '#' && i == 0) || line[0] != '#' {
+				// leave in hom-ref for now so it doesn't look like missing data.
+				//if line[0] == '#' || strings.Contains(line, "\t0/1:") || strings.Contains(line, "\t1/1:") {
+				fmt.Fprint(w, line)
+				//}
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		check(err)
+	}
+
 }

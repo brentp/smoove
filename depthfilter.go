@@ -90,7 +90,11 @@ rm {{prefix}}.quantized.bed.gz.csi
 	check(br.Close())
 	fbw.Close()
 	fbr.Close()
-	check(os.Rename(fbw.Name(), fbam))
+	if err := os.Rename(fbw.Name(), fbam); err != nil {
+		// rename won't work cross-device so we have to copy
+		check(cp(fbam, fbw.Name()))
+		os.Remove(fbw.Name())
+	}
 
 	pct := float64(removed) / float64(tot) * 100
 	fmt.Fprintf(os.Stderr, "[lumpy-smoother] removed %d alignments out of %d (%.2f%%) with depth > %d from %s in %.0f seconds\n",
@@ -124,4 +128,24 @@ func remove_high_depths(bams []filtered, maxdepth int) {
 	close(ch)
 
 	wg.Wait()
+}
+
+// https://gist.github.com/elazarl/5507969#
+func cp(dst, src string) error {
+	s, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	// no need to check errors on read only file, we already got everything
+	// we need from the filesystem, so nothing can go wrong now.
+	defer s.Close()
+	d, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(d, s); err != nil {
+		d.Close()
+		return err
+	}
+	return d.Close()
 }

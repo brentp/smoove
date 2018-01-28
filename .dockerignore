@@ -13,3 +13,5 @@ lumpy-sv
 *.histo
 *.fai
 *.cnvnator
+*.txt
+*.gz

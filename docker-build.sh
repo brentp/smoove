@@ -26,10 +26,18 @@ cd $basedir
 cd samtools && git checkout 1.6
 autoreconf && ./configure && make -j4 install
 cd $basedir && cp ./samtools/samtools /usr/local/bin/
-pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2
+
+cd bcftools && git checkout 1.6
+make -j4
+cp ./bcftools /usr/local/bin
+cd $basedir
+
+pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 svtyper
 
 wget -O /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
 chmod +x /usr/local/bin/mosdepth
+wget -O /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
+chmod +x /usr/bin/gsort
 
 git clone --single-branch --recursive --depth 1 https://github.com/arq5x/lumpy-sv
 cd lumpy-sv
@@ -57,5 +65,9 @@ make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto"
 cp ./cnvnator /usr/local/bin
 cd $basedir
 rm -rf CNVnator
+rm -rf lumpy-sv
+rm -rf bcftools
+
+ldconfig
 
 rm -rf /var/lib/apt/lists/*
