@@ -15,12 +15,22 @@ It requires:
 
 `lumpy-smoother` will:
 
-1. parallelize calls to lumpy\_filter to extract split and discordant reads required by lumpy
-2. parallelize calling cnvnator if it is on the $PATH, including splitting the reference as it requires.
+1. parallelize calls to `lumpy_filter` to extract split and discordant reads required by lumpy
+2. further filter `lumpy_filter` calls to remove high-coverage, spurious regions.
+3. parallelize calling cnvnator if it is on the $PATH, including splitting the reference as it requires.
    calls to `lumpy_filter` and `cnvnator` are in the same process-pool for maximum efficiency
-3. calculate per-sample metrics for mean, standard deviation, and distribution of insert size as required by lumpy.
-4. correct the reference allele (lumpy always puts 'N')
-5. stream output of lumpy directly into multiple svtyper processes for parallel-by-region genotyping while lumpy is still running.
+4. calculate per-sample metrics for mean, standard deviation, and distribution of insert size as required by lumpy.
+5. correct the reference allele (lumpy always puts 'N')
+6. stream output of lumpy directly into multiple svtyper processes for parallel-by-region genotyping while lumpy is still running.
+
+# installation
+
+I will release a binary shortly, meanwhile, you can get this and all dependencies via (a large) docker image:
+
+```
+docker pull brentp/lumpy-smoother
+docker run -it brentp/lumpy-smoother -h
+```
 
 # usage
 
@@ -30,6 +40,7 @@ run `lumpy-smoother -h` for full usage
 lumpy-smoother \
         -n my-project \                        # arbitrary project name for file prefixes
         -f $reference \
+        --outdir results \
         --processes 10 \                       # parallelize with this many processors.
         --exclude low-complexity-regions.bed \ # see: https://github.com/hall-lab/speedseq/tree/master/annotations 
         data/*.bam                             # any number of BAM or CRAM files
@@ -37,13 +48,10 @@ lumpy-smoother \
 
 # TODO
 
-1. further filter lumpy-filter output to remove bad regions with lots of spurious signals using [mosdepth](https://github.com/brentp/mosdepth)
-   and then filtering split and discordant bams to remove high-coverage regions.
-
-2. annotate high-quality calls
-
-3. (unlikely) isolate steps so that users can call, e.g.: 
-```
++ [X] further filter lumpy-filter output to remove bad regions with lots of spurious signals using [mosdepth](https://github.com/brentp/mosdepth)
+      and then filtering split and discordant bams to remove high-coverage regions.
++ [ ] annotate high-quality calls
++ [ ] (unlikely) isolate steps so that users can call, e.g.: 
     lumpy-smoother cnvs
     lumpy-smoother filter
     lumpy-smoother lumpy

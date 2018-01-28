@@ -25,6 +25,7 @@ import (
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
 	"github.com/brentp/xopen"
+	"github.com/valyala/fasttemplate"
 )
 
 type cliargs struct {
@@ -32,8 +33,42 @@ type cliargs struct {
 	Name      string   `arg:"-n,required,help:project name used in output files."`
 	Fasta     string   `arg:"-f,required,help:fasta file."`
 	OutDir    string   `arg:"-o,help:output directory."`
+	MaxDepth  int      `arg:"-d,help:maximum depth in splitters/discordant file."`
 	Exclude   string   `arg:"-e,help:BED of exclude regions."`
 	Bams      []string `arg:"positional,required,help:path to bams to call."`
+}
+
+func has_prog(p string) string {
+	if _, err := exec.LookPath(p); err == nil {
+		return "Y"
+	}
+	return " "
+}
+
+func (cliargs) Description() string {
+	tmpl := `
+lumpy-smoother: call and genotype structural variants in parallel 
+
+lumpy-smoother calls several programs. Those with 'Y' are found on
+your $PATH. Only those with '*' are required.
+
+  [{{lumpy}}] lumpy*
+  [{{lumpy_filter}}] lumpy_filter*
+  [{{cnvnator}}] cnvnator
+  [{{samtools}}] samtools
+  [{{mosdepth}}] mosdepth
+`
+	t := fasttemplate.New(tmpl, "{{", "}}")
+
+	vars := map[string]interface{}{
+		"lumpy":        has_prog("lumpy"),
+		"cnvnator":     has_prog("cnvnator"),
+		"lumpy_filter": has_prog("lumpy_filter"),
+		"samtools":     has_prog("samtools"),
+		"mosdepth":     has_prog("mosdepth"),
+	}
+
+	return t.ExecuteString(vars)
 }
 
 type filtered struct {
@@ -315,9 +350,6 @@ func bam_stats(bams []filtered, fasta string, outdir string) {
 func (f filtered) histpath(outdir string) string {
 	return fmt.Sprintf("%s/%s.histo", outdir, f.sample)
 }
-func (f filtered) discpath(outdir string) string {
-	return fmt.Sprintf("%s/%s.disc.bam", outdir, f.sample)
-}
 
 func write_hist(fi filtered, outdir string) {
 	f, err := os.Create(fi.histpath(outdir))
@@ -449,7 +481,7 @@ func svtyper(vcf, outdir, reference, exclude, lib string, bams []filtered) strin
 
 func main() {
 	here, _ := filepath.Abs(".")
-	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here}
+	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500}
 
 	arg.MustParse(&cli)
 	if err := os.MkdirAll(cli.OutDir, 0777); err != nil {
@@ -478,6 +510,7 @@ func main() {
 			cnvnatorToBedPe(b, cli.OutDir)
 		}
 	}
+	remove_high_depths(splits, cli.MaxDepth)
 
 	p := run_lumpy(splits, cli.Fasta, cli.OutDir, has_cnvnator, cli.Exclude, cli.Name)
 	run_svtypers(p, cli.OutDir, cli.Fasta, cli.Exclude, splits, cli.Name)

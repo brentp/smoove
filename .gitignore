@@ -1,0 +1,10 @@
+*.fa
+*.vcf
+*.bedpe
+*.bam
+*.histo
+*.fai
+*.lib
+*.cnvnator
+*.root
+data/
