@@ -20,7 +20,7 @@ import (
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
-func remove_high_depth(fbam string, maxdepth int) {
+func remove_high_depth(fbam string, maxdepth int, filter_chroms []string) {
 	t0 := time.Now()
 
 	f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
@@ -64,11 +64,42 @@ rm {{prefix}}.quantized.bed.gz.csi
 	check(err)
 	bw, err := bam.NewWriterLevel(fbw, br.Header(), 1, 1)
 
+	// we know they are in order so avoid some lookups when filtering from remove chroms
+	var last string
+	var rmLast bool
+
 	removed, tot := 0, 0
 	for {
 		rec, err := br.Read()
 		if rec != nil {
 			tot += 1
+			rchrom := rec.Ref.Name()
+
+			// block to check if it's in filter chroms
+			// if same as last chrom ...
+			if rchrom == last {
+				// and we remove the last chrom
+				if rmLast {
+					// then skip.
+					removed++
+					continue
+				}
+			} else {
+				// new chrom
+				last = rchrom
+				// if it's in the filtered...
+				if contains(filter_chroms, last) {
+					// then skip and set rmLast
+
+					removed++
+					rmLast = true
+					continue
+				} else {
+					rmLast = false
+				}
+			}
+			// END block to check if it's in filter chroms
+
 			// remove it chrom is found and it overlaps a high-coverage region.
 			if tt, ok := t[rec.Ref.Name()]; ok {
 				if depth.Overlaps(tt, rec.Start(), rec.End()) {
@@ -101,7 +132,16 @@ rm {{prefix}}.quantized.bed.gz.csi
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
 }
 
-func remove_high_depths(bams []filtered, maxdepth int) {
+func contains(haystack []string, needle string) bool {
+	for _, h := range haystack {
+		if h == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func remove_high_depths(bams []filtered, maxdepth int, filter_chroms []string) {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
 		fmt.Fprintln(os.Stderr, "[lumpy-smoother] mosdepth executable not found, proceeding without removing high-coverage regions.")
@@ -115,7 +155,7 @@ func remove_high_depths(bams []filtered, maxdepth int) {
 		wg.Add(1)
 		go func() {
 			for bam := range ch {
-				remove_high_depth(bam, maxdepth)
+				remove_high_depth(bam, maxdepth, filter_chroms)
 			}
 			wg.Done()
 		}()

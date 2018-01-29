@@ -47,6 +47,7 @@ lumpy-smoother \
         -f $reference \
         --outdir results \
         --processes 10 \                       # parallelize with this many processors.
+        -C hs37d5,GL000192.1 \                 # comma-delimited list of chroms to exclude
         --exclude low-complexity-regions.bed \ # see: https://github.com/hall-lab/speedseq/tree/master/annotations 
         data/*.bam                             # any number of BAM or CRAM files
 ```
@@ -63,7 +64,7 @@ lumpy-smoother \
 
 # limitations
 
-Until item 3 above is done, this is limited to cohorts of ~ 20-30 or so.
+this is limited to cohorts of ~ 30-40 or so.
 
 # see also
 

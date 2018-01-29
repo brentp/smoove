@@ -45,13 +45,14 @@ func init() {
 }
 
 type cliargs struct {
-	Processes int      `arg:"-p,help:number of processes to use."`
-	Name      string   `arg:"-n,required,help:project name used in output files."`
-	Fasta     string   `arg:"-f,required,help:fasta file."`
-	OutDir    string   `arg:"-o,help:output directory."`
-	MaxDepth  int      `arg:"-d,help:maximum depth in splitters/discordant file."`
-	Exclude   string   `arg:"-e,help:BED of exclude regions."`
-	Bams      []string `arg:"positional,required,help:path to bams to call."`
+	Processes     int      `arg:"-p,help:number of processes to use."`
+	Name          string   `arg:"-n,required,help:project name used in output files."`
+	Fasta         string   `arg:"-f,required,help:fasta file."`
+	OutDir        string   `arg:"-o,help:output directory."`
+	MaxDepth      int      `arg:"-d,help:maximum depth in splitters/discordant file."`
+	Exclude       string   `arg:"-e,help:BED of exclude regions."`
+	ExcludeChroms string   `arg:"-C,help:ignore SVs with either end in this comma-delimited list of chroms"`
+	Bams          []string `arg:"positional,required,help:path to bams to call."`
 }
 
 func has_prog(p string) string {
@@ -505,7 +506,7 @@ func svtyper(vcf, outdir, reference, exclude, lib string, bams []filtered) strin
 
 func main() {
 	here, _ := filepath.Abs(".")
-	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500}
+	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500, ExcludeChroms: "hs37d5"}
 
 	arg.MustParse(&cli)
 	if err := os.MkdirAll(cli.OutDir, 0777); err != nil {
@@ -534,7 +535,8 @@ func main() {
 			cnvnatorToBedPe(b, cli.OutDir)
 		}
 	}
-	remove_high_depths(splits, cli.MaxDepth)
+	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
+	remove_high_depths(splits, cli.MaxDepth, filter_chroms)
 
 	p := run_lumpy(splits, cli.Fasta, cli.OutDir, has_cnvnator, cli.Exclude, cli.Name)
 	vcf := run_svtypers(p, cli.OutDir, cli.Fasta, cli.Exclude, splits, cli.Name)
