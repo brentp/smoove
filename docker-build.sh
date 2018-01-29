@@ -32,11 +32,14 @@ make -j4
 cp ./bcftools /usr/local/bin
 cd $basedir
 
+wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.0/batchit
+chmod +x /usr/bin/batchit
+
 pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 svtyper
 
-wget -O /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
+wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
 chmod +x /usr/local/bin/mosdepth
-wget -O /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
+wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
 chmod +x /usr/bin/gsort
 
 git clone --single-branch --recursive --depth 1 https://github.com/arq5x/lumpy-sv

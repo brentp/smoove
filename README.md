@@ -19,7 +19,7 @@ It requires:
 `lumpy-smoother` will:
 
 1. parallelize calls to `lumpy_filter` to extract split and discordant reads required by lumpy
-2. further filter `lumpy_filter` calls to remove high-coverage, spurious regions;
+2. further filter `lumpy_filter` calls to remove high-coverage, spurious regions and user-specified chroms like 'hs37d5';
    this will make lumpy faster and less memory-hungry.
 3. parallelize calling cnvnator if it is on the $PATH, including splitting the reference as it requires.
    calls to `lumpy_filter` and `cnvnator` are in the same process-pool for maximum efficiency
