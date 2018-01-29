@@ -620,7 +620,7 @@ type lockedWriter struct {
 
 func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams []filtered, name string) string {
 	// make n svtyper workers
-	vcfch := make(chan string, 1)
+	vcfch := make(chan string, 8)
 
 	fa, err := faidx.New(fasta)
 	check(err)
