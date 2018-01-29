@@ -448,7 +448,7 @@ func run_lumpy(bams []filtered, fa string, outdir string, has_cnvnator bool, exc
 		panic("[lumpy-smoother] lumpy not found on path")
 	}
 
-	lumpy_tmpl := fmt.Sprintf("set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 %s ", exclude)
+	lumpy_tmpl := "set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 "
 	pe_tmpl := "-pe id:{{.Sample}},bam_file:{{.DiscPath}},histo_file:{{.HistPath}},mean:{{.Mean}},stdev:{{.Std}},read_length:{{.ReadLength}},min_non_overlap:{{.ReadLength}},discordant_z:4,back_distance:30,weight:1,min_mapping_threshold:20 "
 	sr_tmpl := "-sr id:{{.Sample}},bam_file:{{.SplitPath}},back_distance:10,weight:1,min_mapping_threshold:20 "
 
@@ -536,7 +536,7 @@ func main() {
 		}
 	}
 	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
-	remove_high_depths(splits, cli.MaxDepth, filter_chroms)
+	remove_high_depths(splits, cli.MaxDepth, cli.Exclude, filter_chroms)
 
 	p := run_lumpy(splits, cli.Fasta, cli.OutDir, has_cnvnator, cli.Exclude, cli.Name)
 	vcf := run_svtypers(p, cli.OutDir, cli.Fasta, cli.Exclude, splits, cli.Name)
@@ -620,7 +620,7 @@ type lockedWriter struct {
 
 func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams []filtered, name string) string {
 	// make n svtyper workers
-	vcfch := make(chan string, 8)
+	vcfch := make(chan string, 16)
 
 	fa, err := faidx.New(fasta)
 	check(err)

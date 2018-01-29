@@ -20,7 +20,7 @@ import (
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
-func remove_high_depth(fbam string, maxdepth int, filter_chroms []string) {
+func remove_high_depth(fbam string, maxdepth int, fexclude string, filter_chroms []string) {
 	t0 := time.Now()
 
 	f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
@@ -53,7 +53,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	defer os.Remove(f.Name() + ".quantized.bed.gz")
 	defer os.Remove(fbam + ".bai")
 
-	t := depth.ReadTree(f.Name() + ".quantized.bed.gz")
+	t := depth.ReadTree(f.Name()+".quantized.bed.gz", fexclude)
 
 	fbr, err := os.Open(fbam)
 	check(err)
@@ -147,7 +147,7 @@ func contains(haystack []string, needle string) bool {
 	return false
 }
 
-func remove_high_depths(bams []filtered, maxdepth int, filter_chroms []string) {
+func remove_high_depths(bams []filtered, maxdepth int, fexclude string, filter_chroms []string) {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
 		fmt.Fprintln(os.Stderr, "[lumpy-smoother] mosdepth executable not found, proceeding without removing high-coverage regions.")
@@ -161,7 +161,7 @@ func remove_high_depths(bams []filtered, maxdepth int, filter_chroms []string) {
 		wg.Add(1)
 		go func() {
 			for bam := range ch {
-				remove_high_depth(bam, maxdepth, filter_chroms)
+				remove_high_depth(bam, maxdepth, fexclude, filter_chroms)
 			}
 			wg.Done()
 		}()
