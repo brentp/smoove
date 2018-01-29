@@ -17,6 +17,8 @@ import (
 	"github.com/valyala/fasttemplate"
 )
 
+const MinMapQuality = byte(20)
+
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
@@ -74,6 +76,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 		if rec != nil {
 			tot += 1
 			rchrom := rec.Ref.Name()
+			if rec.MapQ < MinMapQuality {
+				removed++
+				continue
+			}
 
 			// block to check if it's in filter chroms
 			// if same as last chrom ...
