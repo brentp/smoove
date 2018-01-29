@@ -107,6 +107,12 @@ rm {{prefix}}.quantized.bed.gz.csi
 					continue
 				}
 			}
+			// if we made it here, we know the chrom is OK.
+			// so check if mate is from a different chromosome and exclude if mate from filtered chroms
+			if rec.MateRef.ID() != rec.Ref.ID() && contains(filter_chroms, rec.MateRef.Name()) {
+				removed++
+				continue
+			}
 			check(bw.Write(rec))
 
 		}
@@ -128,7 +134,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	}
 
 	pct := float64(removed) / float64(tot) * 100
-	fmt.Fprintf(os.Stderr, "[lumpy-smoother] removed %d alignments out of %d (%.2f%%) with depth > %d from %s in %.0f seconds\n",
+	fmt.Fprintf(os.Stderr, "[lumpy-smoother] removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
 }
 
