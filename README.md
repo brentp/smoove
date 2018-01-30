@@ -20,7 +20,8 @@ It requires:
 
 1. parallelize calls to `lumpy_filter` to extract split and discordant reads required by lumpy
 2. further filter `lumpy_filter` calls to remove high-coverage, spurious regions and user-specified chroms like 'hs37d5';
-   this will make lumpy faster and less memory-hungry.
+   after this, it will remove singleton reads (where the mate was removed by one of the previous filters) from the discordant
+   bams. This makes `lumpy` much faster and less memory-hungry.
 3. parallelize calling cnvnator if it is on the $PATH, including splitting the reference as it requires.
    calls to `lumpy_filter` and `cnvnator` are in the same process-pool for maximum efficiency
 4. calculate per-sample metrics for mean, standard deviation, and distribution of insert size as required by lumpy.

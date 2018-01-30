@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -142,6 +143,9 @@ rm {{prefix}}.quantized.bed.gz.csi
 	pct := float64(removed) / float64(tot) * 100
 	fmt.Fprintf(os.Stderr, "[lumpy-smoother] removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
+	if !strings.HasSuffix(fbam, ".split.bam") {
+		singletonfilter(fbam)
+	}
 }
 
 func contains(haystack []string, needle string) bool {
@@ -200,4 +204,62 @@ func cp(dst, src string) error {
 		return err
 	}
 	return d.Close()
+}
+
+func singletonfilter(fbam string) {
+
+	f, err := os.Open(fbam)
+	check(err)
+
+	br, err := bam.NewReader(f, 1)
+	check(err)
+
+	counts := make(map[string]int, 100)
+
+	for {
+		rec, err := br.Read()
+		if rec != nil {
+			counts[rec.Name]++
+		}
+		if err == io.EOF {
+			break
+		}
+		check(err)
+	}
+
+	f.Seek(0, os.SEEK_SET)
+	br, err = bam.NewReader(f, 1)
+	check(err)
+
+	fw, err := os.Create(fbam + ".tmp.bam")
+	check(err)
+	bw, err := bam.NewWriterLevel(fw, br.Header(), 1, 1)
+	check(err)
+
+	tot, removed := 0, 0
+	for {
+		rec, err := br.Read()
+		// skip any singleton read as long as it's not a splitter.
+		if rec != nil {
+			tot += 1
+			if counts[rec.Name] == 1 {
+				if _, ok := rec.Tag([]byte{'S', 'A'}); !ok {
+					removed++
+					continue
+				}
+			}
+			check(bw.Write(rec))
+		}
+
+		if err == io.EOF {
+			break
+		}
+		check(err)
+	}
+	check(bw.Close())
+	check(br.Close())
+
+	check(os.Rename(fw.Name(), f.Name()))
+	pct := 100 * float64(removed) / float64(tot)
+	logger.Printf("removed %d singletons out of %d (%.2f%%), non-splitter reads from %s", removed, tot, pct, filepath.Base(f.Name()))
 }
