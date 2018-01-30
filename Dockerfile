@@ -7,4 +7,4 @@ COPY lumpy-smoother .
 
 RUN bash docker-build.sh
 
-ENTRYPOINT ["lumpy-smoother"]
+#ENTRYPOINT ["lumpy-smoother"]

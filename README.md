@@ -60,7 +60,6 @@ lumpy-smoother \
     lumpy-smoother filter
     lumpy-smoother lumpy
     lumpy-smoother call
-```
 
 # limitations
 
