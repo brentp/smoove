@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -141,7 +140,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	}
 
 	pct := float64(removed) / float64(tot) * 100
-	fmt.Fprintf(os.Stderr, "[lumpy-smoother] removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
+	logger.Printf("removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
 	if !strings.HasSuffix(fbam, ".split.bam") {
 		singletonfilter(fbam)
@@ -160,7 +159,7 @@ func contains(haystack []string, needle string) bool {
 func remove_high_depths(bams []filtered, maxdepth int, fexclude string, filter_chroms []string) {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
-		fmt.Fprintln(os.Stderr, "[lumpy-smoother] mosdepth executable not found, proceeding without removing high-coverage regions.")
+		logger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
 		return
 	}
 
