@@ -294,6 +294,7 @@ func cnvnatorToBedPe(b filtered, outdir string) {
 }
 
 func lumpy_filter_cmd(xam string, outdir string, threads int, project string) filtered {
+	// check if .split.bam and .disc.bam exist. if they do, then use.
 	sm, err := indexcov.GetShortName(xam, strings.HasSuffix(xam, ".cram"))
 	check(err)
 	prefix := fmt.Sprintf("%s/%s", outdir, sm)
@@ -312,7 +313,8 @@ func lumpy_filter_cmd(xam string, outdir string, threads int, project string) fi
 	}
 
 	f := filtered{split: prefix + ".split.bam", disc: prefix + ".disc.bam", sample: sm, xam: xam, project: project}
-	f.command = fmt.Sprintf("lumpy_filter %s %s %s %d", xam, f.split, f.disc, threads)
+	// use .tmp.bam in case of error while running lumpy filter.
+	f.command = fmt.Sprintf("lumpy_filter %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", xam, f.split, f.disc, threads, f.split, f.split, f.disc, f.disc)
 	return f
 }
 
@@ -364,12 +366,27 @@ func processor(cmds chan string) chan bool {
 
 func bam_stats(bams []filtered, fasta string, outdir string) {
 	logger.Printf("calculating bam stats for %d bams\n", len(bams))
-	for i, f := range bams {
-		br, err := NewReader(f.xam, 2, fasta)
-		check(err)
-		bams[i].stats = covstats.BamStats(br, 200000)
-		write_hist(bams[i], outdir)
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	f := func(mod int) {
+		for i, f := range bams {
+			if i%2 == mod {
+				continue
+			}
+			br, err := NewReader(f.xam, 2, fasta)
+			check(err)
+			bams[i].stats = covstats.BamStats(br, 200000)
+			write_hist(bams[i], outdir)
+		}
+		wg.Done()
 	}
+
+	go f(0)
+	go f(1)
+	wg.Wait()
+	logger.Print("done calculating bam stats\n")
 }
 
 func (f filtered) histpath(outdir string) string {
