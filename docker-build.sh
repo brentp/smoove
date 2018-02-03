@@ -20,10 +20,10 @@ apt-get -qy install \
 git clone --recursive https://github.com/samtools/htslib.git
 git clone --recursive https://github.com/samtools/samtools.git
 git clone --recursive https://github.com/samtools/bcftools.git
-cd htslib && git checkout 1.6 && autoheader && autoconf && ./configure --enable-libcurl
+cd htslib && git checkout 1.7 && autoheader && autoconf && ./configure --enable-libcurl
 cd .. && make -j4 -C htslib install
 cd $basedir
-cd samtools && git checkout 1.6
+cd samtools && git checkout 1.7
 autoreconf && ./configure && make -j4 install
 cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
@@ -32,7 +32,7 @@ make -j4
 cp ./bcftools /usr/local/bin
 cd $basedir
 
-wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.0/batchit
+wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.1/batchit
 chmod +x /usr/bin/batchit
 
 pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 svtyper
@@ -57,13 +57,11 @@ cmake -D x11=OFF ../
 make -j4 install
 cd $basedir
 rm -rf root
-git clone --depth 1 https://github.com/abyzovlab/CNVnator
+git clone --depth 1 -b stdin https://github.com/brentp/CNVnator
 cd CNVnator
 pwd
-echo "up one:"
-ls -lh ../
-cp -r $basedir/samtools/ .
-cp -r $basedir/htslib/ .
+ln -s $basedir/samtools/ .
+ln -s $basedir/htslib/ .
 make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto"
 cp ./cnvnator /usr/local/bin
 cd $basedir

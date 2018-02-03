@@ -24,6 +24,7 @@ import (
 	"github.com/brentp/gargs/process"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
+	"github.com/brentp/lumpy-smoother/hipstr"
 	"github.com/brentp/xopen"
 	"github.com/valyala/fasttemplate"
 )
@@ -131,9 +132,11 @@ export REF_PATH={{.Reference}}
 cd {{.OutDir}}
 
 # split to make 3 chunks to use less mem.
-cnvnator -root {{.Sample}}.root -chrom {{.Achroms}} -unique -tree {{.Bam}}
-cnvnator -root {{.Sample}}.root -chrom {{.Bchroms}} -unique -tree {{.Bam}}
-cnvnator -root {{.Sample}}.root -chrom {{.Cchroms}} -unique -tree {{.Bam}}
+# use STDIN to get around https://github.com/abyzovlab/CNVnator/issues/101
+# this requires a specific branch of cnvnator: https://github.com/brentp/CNVnator/tree/stdin
+samtools view -T {{.Reference}} -u {{.Bam}} {{.Achroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Achroms}} -unique -tree
+samtools view -T {{.Reference}} -u {{.Bam}} {{.Bchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Bchroms}} -unique -tree
+samtools view -T {{.Reference}} -u {{.Bam}} {{.Cchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Cchroms}} -unique -tree
 
 cnvnator -root {{.Sample}}.root -his {{.Bin}}
 cnvnator -root {{.Sample}}.root -stat {{.Bin}}
@@ -522,6 +525,13 @@ func svtyper(vcf, outdir, reference, exclude, lib string, bams []filtered) strin
 }
 
 func main() {
+
+	if len(os.Args) > 1 && os.Args[1] == "hipstr" {
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+		hipstr.Main()
+		os.Exit(0)
+	}
+
 	here, _ := filepath.Abs(".")
 	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500, ExcludeChroms: "hs37d5"}
 
@@ -681,7 +691,11 @@ func run_svtypers(p *exec.Cmd, outdir string, fasta string, exclude string, bams
 	}
 
 	// do the actuall svtyping in parallel.
-	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-1); i++ {
+	procs := max(1, runtime.GOMAXPROCS(0)-1)
+	if procs > 20 {
+		procs -= 4
+	}
+	for i := 0; i < procs; i++ {
 		wg.Add(1)
 		go func() {
 			libwg.Wait()
