@@ -47,22 +47,38 @@ cd lumpy-sv
 make -j 3
 cp ./bin/* /usr/local/bin/
 
-cd $basedir
+
+apt-get -qy install libroot-math-mathmore-dev                              
+export CPLUS_INCLUDE_PATH=/usr/include/root/
 
 ## CNVnator stuffs
-git clone --depth 1 http://root.cern.ch/git/root.git
-mkdir root/ibuild
-cd root/ibuild
-cmake -D x11=OFF ../
-make -j4 install
+#git clone --depth 1 http://root.cern.ch/git/root.git
+#mkdir root/ibuild
+#cd root/ibuild
+#cmake -D x11=OFF ../
+#make -j4 install
+#cd $basedir
+#rm -rf root
+
+# YEPP not working even after patching cnvnator. just stalls at partition step.
+#cd /
+#wget -q http://bitbucket.org/MDukhan/yeppp/downloads/yeppp-1.0.0.tar.bz2
+#tar xjvf yeppp-1.0.0.tar.bz2
+#rm yeppp-1.0.0.tar.bz2
+#export LD_LIBRARY_PATH=/yeppp-1.0.0/binaries/linux/x86_64/
+#echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> /etc/bash.bashrc
+#echo "/yeppp-1.0.0/binaries/linux/x86_64/" >> /etc/ld.so.conf
+
 cd $basedir
-rm -rf root
+
 git clone --depth 1 -b stdin https://github.com/brentp/CNVnator
 cd CNVnator
 pwd
 ln -s $basedir/samtools/ .
 ln -s $basedir/htslib/ .
+#make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto" YEPPPLIBDIR=$basedir/yeppp-1.0.0/binaries/linux/x86_64/ YEPPPINCLUDEDIR=$basedir/yeppp-1.0.0/library/headers
 make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto"
+
 cp ./cnvnator /usr/local/bin
 cd $basedir
 rm -rf CNVnator
