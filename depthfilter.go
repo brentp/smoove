@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/biogo/hts/bam"
 	"github.com/brentp/goleft/depth"
+	"github.com/brentp/lumpy-smoother/evidencewindow"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -33,9 +35,7 @@ func remove_high_depth(fbam string, maxdepth int, fexclude string, filter_chroms
 export MOSDEPTH_Q0=OK
 export MOSDEPTH Q1=HIGH
 set -euo pipefail
-if [[ ! -e {{bam}}.bai ]]; then
-  samtools index {{bam}}
-fi
+samtools index {{bam}}
 mosdepth -n --quantize {{md1}}: {{prefix}} {{bam}}
 rm {{prefix}}.mosdepth.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
@@ -145,6 +145,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	if !strings.HasSuffix(fbam, ".split.bam") {
 		singletonfilter(fbam)
 	}
+
 }
 
 func contains(haystack []string, needle string) bool {
@@ -164,6 +165,7 @@ func remove_high_depths(bams []filtered, maxdepth int, fexclude string, filter_c
 	}
 
 	ch := make(chan string, runtime.GOMAXPROCS(0))
+	pch := make(chan []string, runtime.GOMAXPROCS(0))
 	var wg sync.WaitGroup
 
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
@@ -171,6 +173,17 @@ func remove_high_depths(bams []filtered, maxdepth int, fexclude string, filter_c
 		go func() {
 			for bam := range ch {
 				remove_high_depth(bam, maxdepth, fexclude, filter_chroms)
+			}
+			for pair := range pch {
+				proc := exec.Command("bash", "-c", fmt.Sprintf("samtools index %s && samtools index %s", pair[0], pair[1]))
+				proc.Stderr = os.Stderr
+				proc.Stdout = os.Stdout
+				check(proc.Run())
+				newbams := evidencewindow.EvidenceRemoval(&evidencewindow.Args{Window: 1500, Evidence: 2, Bams: pair})
+				check(os.Rename(newbams[0], pair[0]))
+				check(os.Rename(newbams[1], pair[1]))
+				os.Remove(pair[0] + ".bai")
+				os.Remove(pair[1] + ".bai")
 			}
 			wg.Done()
 		}()
@@ -181,6 +194,10 @@ func remove_high_depths(bams []filtered, maxdepth int, fexclude string, filter_c
 		ch <- b.split
 	}
 	close(ch)
+	for _, b := range bams {
+		pch <- []string{b.disc, b.split}
+	}
+	close(pch)
 
 	wg.Wait()
 }

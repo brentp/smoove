@@ -24,6 +24,7 @@ import (
 	"github.com/brentp/gargs/process"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
+	"github.com/brentp/lumpy-smoother/evidencewindow"
 	"github.com/brentp/lumpy-smoother/hipstr"
 	"github.com/brentp/xopen"
 	"github.com/valyala/fasttemplate"
@@ -355,6 +356,7 @@ func processor(cmds chan string) chan bool {
 				break
 			}
 			c.Cleanup()
+			// TODO: add cnvnator time
 
 		}
 		if anyError != nil {
@@ -529,6 +531,11 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "hipstr" {
 		os.Args = append(os.Args[:1], os.Args[2:]...)
 		hipstr.Main()
+		os.Exit(0)
+	}
+	if len(os.Args) > 1 && os.Args[1] == "evwin" {
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+		evidencewindow.Main()
 		os.Exit(0)
 	}
 
