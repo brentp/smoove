@@ -1,11 +1,15 @@
 *.fa
 *.bam
+*.bai
+*.cram
+*.fa
 *.vcf
 root/
 htslib/
 samtools/
 bcftools/
 data/
+ssc-crams/
 *.bedpe
 lumpy-sv
 *.root

@@ -23,6 +23,7 @@ import (
 	"github.com/biogo/hts/bam"
 	"github.com/brentp/faidx"
 	"github.com/brentp/gargs/process"
+	"github.com/brentp/go-athenaeum/shpool"
 	"github.com/brentp/go-athenaeum/tempclean"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
@@ -142,7 +143,7 @@ samtools view -T {{.Reference}} -u {{.Bam}} {{.Achroms}} | cnvnator -root {{.Sam
 samtools view -T {{.Reference}} -u {{.Bam}} {{.Bchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Bchroms}} -unique -tree
 samtools view -T {{.Reference}} -u {{.Bam}} {{.Cchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Cchroms}} -unique -tree
 
-cnvnator -root {{.Sample}}.root -chrom -his {{.Bin}}
+cnvnator -root {{.Sample}}.root -his {{.Bin}}
 cnvnator -root {{.Sample}}.root -stat {{.Bin}}
 cnvnator -root {{.Sample}}.root -partition {{.Bin}}
 cnvnator -root {{.Sample}}.root -call {{.Bin}} > {{.Sample}}.cnvnator
@@ -230,27 +231,19 @@ func split(fa *faidx.Faidx, n int, outdir string, excludeChroms []string) []stri
 	return sp
 }
 
-func cnvnators(bams []filtered, ref string, outdir string, bin int, excludeChroms []string, cmds chan string) chan bool {
+func cnvnators(bams []filtered, ref string, outdir string, bin int, excludeChroms []string, pool *shpool.Pool) {
 
 	fa, err := faidx.New(ref)
 	check(err)
 	sp := split(fa, 3, outdir, excludeChroms)
 	fa.Close()
 
-	done := make(chan bool)
-
-	go func() {
-
-		for _, b := range bams {
-			if cmd := cnvnator(b, sp, ref, outdir, bin); cmd != "" {
-				//log.Println(cmd)
-				cmds <- cmd
-			}
+	for _, b := range bams {
+		if cmd := cnvnator(b, sp, ref, outdir, bin); cmd != "" {
+			//log.Println(cmd)
+			pool.Add(shpool.Process{Command: cmd, Prefix: "cnvnator"})
 		}
-		done <- true
-		close(done)
-	}()
-	return done
+	}
 }
 
 func max(a, b int) int {
@@ -398,27 +391,18 @@ func lumpy_filter_cmd(xam string, outdir string, threads int, project string, re
 	return f
 }
 
-func lumpy_filters(bams []string, outdir string, project string, reference string, cmds chan string) (chan bool, []filtered) {
+func lumpy_filters(bams []string, outdir string, project string, reference string, pool *shpool.Pool) []filtered {
 	filts := make([]filtered, len(bams))
 	threads := 1
 	if runtime.GOMAXPROCS(0) > len(bams) {
 		threads = 2
 	}
-	done := make(chan bool)
 	for i, b := range bams {
 		filts[i] = lumpy_filter_cmd(b, outdir, threads, project, reference)
+		pool.Add(shpool.Process{Command: filts[i].command, CPUs: 1, Prefix: "lumpy-filter"})
 	}
 
-	go func() {
-		for i := range bams {
-			if filts[i].command != "" {
-				cmds <- filts[i].command
-			}
-		}
-		done <- true
-		close(done)
-	}()
-	return done, filts
+	return filts
 }
 
 func processor(cmds chan string) chan bool {
@@ -630,10 +614,10 @@ func main() {
 	}
 	runtime.GOMAXPROCS(cli.Processes)
 
-	cmds := make(chan string, 1)
-	pdone := processor(cmds) // processor executes the bash commands as it gets them.
+	pool := shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: "[lumpy-smoother]"})
 
-	lumpy_filter_done, splits := lumpy_filters(cli.Bams, cli.OutDir, cli.Name, cli.Fasta, cmds)
+	splits := lumpy_filters(cli.Bams, cli.OutDir, cli.Name, cli.Fasta, pool)
+
 	fmt.Fprintln(logger, "sent lumpy_filter commands")
 	bam_stats(splits, cli.Fasta, cli.OutDir)
 
@@ -641,11 +625,11 @@ func main() {
 	if _, err := exec.LookPath("cnvnator"); err == nil {
 		has_cnvnator = true
 		fmt.Fprintln(logger, "sending cnvnator commands")
-		<-cnvnators(splits, cli.Fasta, cli.OutDir, 500, strings.Split(cli.ExcludeChroms, ","), cmds)
+		cnvnators(splits, cli.Fasta, cli.OutDir, 500, strings.Split(cli.ExcludeChroms, ","), pool)
 	}
-	<-lumpy_filter_done
-	close(cmds)
-	<-pdone
+	if err := pool.Wait(); err != nil {
+		panic(err)
+	}
 	if has_cnvnator {
 		for _, b := range splits {
 			cnvnatorToBedPe(b, cli.OutDir, cli.Fasta)
