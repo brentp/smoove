@@ -42,6 +42,9 @@ chmod +x /usr/local/bin/mosdepth
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
 chmod +x /usr/bin/gsort
 
+wget -qO /usr/bin/gargs https://github.com/brentp/gargs/releases/download/v0.3.9/gargs_linux
+chmod +x /usr/bin/gargs
+
 git clone --single-branch --recursive --depth 1 https://github.com/arq5x/lumpy-sv
 cd lumpy-sv
 make -j 3

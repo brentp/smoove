@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,17 +15,21 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
+	"time"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/biogo/biogo/io/seqio/fai"
 	"github.com/biogo/hts/bam"
 	"github.com/brentp/faidx"
 	"github.com/brentp/gargs/process"
+	"github.com/brentp/go-athenaeum/tempclean"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
 	"github.com/brentp/lumpy-smoother/evidencewindow"
 	"github.com/brentp/lumpy-smoother/hipstr"
 	"github.com/brentp/xopen"
+	"github.com/pkg/errors"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -53,7 +56,7 @@ type cliargs struct {
 	OutDir        string   `arg:"-o,help:output directory."`
 	MaxDepth      int      `arg:"-d,help:maximum depth in splitters/discordant file."`
 	Exclude       string   `arg:"-e,help:BED of exclude regions."`
-	ExcludeChroms string   `arg:"-C,help:ignore SVs with either end in this comma-delimited list of chroms"`
+	ExcludeChroms string   `arg:"-C,help:ignore SVs with either end in this comma-delimited list of chroms. If this starts with ~ it is treated as a regular expression to exclude."`
 	Bams          []string `arg:"positional,required,help:path to bams to call."`
 }
 
@@ -125,12 +128,12 @@ type cnvargs struct {
 	Reference string
 }
 
-const SVTYPER_LINES = 250
+const SVTYPER_LINES = 300
 
 const cnvnator_cmd = `
 set -euo pipefail
-export REF_PATH={{.Reference}}
 cd {{.OutDir}}
+export REF_PATH={{.OutDir}}
 
 # split to make 3 chunks to use less mem.
 # use STDIN to get around https://github.com/abyzovlab/CNVnator/issues/101
@@ -139,7 +142,7 @@ samtools view -T {{.Reference}} -u {{.Bam}} {{.Achroms}} | cnvnator -root {{.Sam
 samtools view -T {{.Reference}} -u {{.Bam}} {{.Bchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Bchroms}} -unique -tree
 samtools view -T {{.Reference}} -u {{.Bam}} {{.Cchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Cchroms}} -unique -tree
 
-cnvnator -root {{.Sample}}.root -his {{.Bin}}
+cnvnator -root {{.Sample}}.root -chrom -his {{.Bin}}
 cnvnator -root {{.Sample}}.root -stat {{.Bin}}
 cnvnator -root {{.Sample}}.root -partition {{.Bin}}
 cnvnator -root {{.Sample}}.root -call {{.Bin}} > {{.Sample}}.cnvnator
@@ -152,13 +155,22 @@ func cnvnator(bam filtered, chunks []string, ref string, outdir string, bin int)
 		return ""
 	}
 
+	bampath, err := filepath.Abs(bam.xam)
+	check(err)
+
 	var buf bytes.Buffer
 	ca := cnvargs{Sample: bam.sample, OutDir: outdir, Reference: ref, Achroms: chunks[0], Bchroms: chunks[1],
-		Cchroms: chunks[2], Bam: bam.xam, Bin: bin}
+		Cchroms: chunks[2], Bam: bampath, Bin: bin}
 	t, err := template.New(bam.sample).Parse(cnvnator_cmd)
 	check(err)
 	check(t.Execute(&buf, ca))
-	return buf.String()
+	// use a bash script so we don't get an error about command too long.
+	ft, err := tempclean.TempFile("", "cnvnator.sh")
+	check(err)
+	ft.Write(buf.Bytes())
+	check(ft.Close())
+	time.Sleep(100 * time.Millisecond)
+	return "bash " + ft.Name()
 }
 
 // cnvnator requires 1.fa, 2.fa, ... in the working dir.
@@ -185,12 +197,19 @@ func writeFa(fa *faidx.Faidx, r fai.Record, outdir string) {
 	os.Rename(f.Name(), outdir+"/"+r.Name+".fa")
 }
 
-func split(fa *faidx.Faidx, n int, outdir string) []string {
+func split(fa *faidx.Faidx, n int, outdir string, excludeChroms []string) []string {
 	sp := make([]string, n)
 	// split the chroms into 3 chunks that are relatively even by total bases.
 	seqs := make([]fai.Record, 0, len(fa.Index))
 	var tot int
 	for _, v := range fa.Index {
+		// exclude chromosomes with ':' in the name because these screw with cnvnator.
+		if strings.Contains(v.Name, ":") {
+			continue
+		}
+		if contains(excludeChroms, v.Name) {
+			continue
+		}
 		writeFa(fa, v, outdir)
 		seqs = append(seqs, v)
 		tot += v.Length
@@ -201,7 +220,7 @@ func split(fa *faidx.Faidx, n int, outdir string) []string {
 	var k, ktot int
 	for i := 0; i < n; i++ {
 		for k < len(seqs) && ktot < nper {
-			sp[i] += seqs[k].Name + " "
+			sp[i] += "'" + seqs[k].Name + "' "
 			ktot += seqs[k].Length
 			k += 1
 		}
@@ -211,11 +230,11 @@ func split(fa *faidx.Faidx, n int, outdir string) []string {
 	return sp
 }
 
-func cnvnators(bams []filtered, ref string, outdir string, bin int, cmds chan string) chan bool {
+func cnvnators(bams []filtered, ref string, outdir string, bin int, excludeChroms []string, cmds chan string) chan bool {
 
 	fa, err := faidx.New(ref)
 	check(err)
-	sp := split(fa, 3, outdir)
+	sp := split(fa, 3, outdir, excludeChroms)
 	fa.Close()
 
 	done := make(chan bool)
@@ -241,7 +260,67 @@ func max(a, b int) int {
 	return b
 }
 
-func cnvnatorToBedPe(b filtered, outdir string) {
+type cnv struct {
+	chrom string
+	start int
+
+	end   int
+	i     int
+	event string
+}
+
+func cnvFromLine(line string, i int) cnv {
+	toks := strings.Split(strings.TrimSpace(line), "\t")
+	chrom_interval := strings.Split(toks[1], ":")
+	se := strings.Split(chrom_interval[1], "-")
+	start, err := strconv.Atoi(se[0])
+	check(err)
+	stop, err := strconv.Atoi(se[1])
+	return cnv{chrom: chrom_interval[0], start: start, end: stop, i: i, event: toks[0]}
+}
+
+func (c cnv) String(breakHalf int) string {
+	return strings.Join([]string{c.chrom,
+		strconv.Itoa(max(1, c.start-breakHalf)),
+		strconv.Itoa(c.start + breakHalf),
+		c.chrom,
+		strconv.Itoa(max(1, c.end-breakHalf)),
+		strconv.Itoa(c.end + breakHalf),
+		strconv.Itoa(c.i),
+		strconv.Itoa(c.end - c.start),
+		"+", "+", "TYPE:" + strings.ToUpper(c.event)}, "\t")
+}
+
+func faOrder(fa *faidx.Faidx) map[string]int {
+	recs := make([]fai.Record, 0, len(fa.Index))
+	for _, r := range fa.Index {
+		recs = append(recs, r)
+	}
+	sort.Slice(recs, func(i, j int) bool { return recs[i].Start < recs[j].Start })
+	names := make(map[string]int, 2)
+	for i, r := range recs {
+		names[r.Name] = i
+	}
+	return names
+}
+
+// sort according to chrom, then start, then 2nd.
+func sort2(a cnv, b cnv, chromOrder map[string]int) bool {
+	if chromOrder[a.chrom] != chromOrder[b.chrom] {
+		return chromOrder[a.chrom] < chromOrder[b.chrom]
+	}
+	if a.start != b.start {
+		return a.start < b.start
+	}
+	return a.end < b.end
+}
+
+func cnvnatorToBedPe(b filtered, outdir string, fasta string) {
+	fa, err := faidx.New(fasta)
+	check(err)
+
+	order := faOrder(fa)
+
 	f, err := os.Open(outdir + "/" + b.sample + ".cnvnator")
 	check(err)
 	defer f.Close()
@@ -254,10 +333,13 @@ func cnvnatorToBedPe(b filtered, outdir string) {
 	check(err)
 	defer dupf.Close()
 
-	breakHalf := 125
+	breakHalf := 150
 
 	br := bufio.NewReader(f)
 	i := 0
+
+	dups := make([]cnv, 0, 1048)
+	dels := make([]cnv, 0, 1048)
 
 	for {
 		line, err := br.ReadString('\n')
@@ -266,38 +348,32 @@ func cnvnatorToBedPe(b filtered, outdir string) {
 			break
 		}
 		check(err)
-		toks := strings.Split(strings.TrimSpace(line), "\t")
-		chrom_interval := strings.Split(toks[1], ":")
-		se := strings.Split(chrom_interval[1], "-")
-		start, err := strconv.Atoi(se[0])
-		check(err)
-		stop, err := strconv.Atoi(se[1])
 
-		var f *os.File
-		if toks[0] == "duplication" {
-			f = dupf
+		c := cnvFromLine(line, i)
+		if c.event == "duplication" {
+			dups = append(dups, c)
+		} else if c.event == "deletion" {
+			dels = append(dels, c)
+
 		} else {
-			if toks[0] != "deletion" {
-				panic("expecting 'DUPLICATION' or 'DELETION' as 2nd column in:" + line)
-			}
-			f = delf
+			panic("expecting 'duplication' or 'deletion' as 2nd column in:" + line)
 		}
-		f.WriteString(
-			strings.Join([]string{chrom_interval[0],
-				strconv.Itoa(max(1, start-breakHalf)),
-				strconv.Itoa(start + breakHalf),
-				chrom_interval[0],
-				strconv.Itoa(max(1, stop-breakHalf)),
-				strconv.Itoa(stop + breakHalf),
-				strconv.Itoa(i),
-				strconv.Itoa(stop - start),
-				"+", "+", "TYPE:" + strings.ToUpper(toks[0])}, "\t"))
-		f.Write([]byte{'\n'})
+	}
+	sort.Slice(dels, func(i, j int) bool { return sort2(dels[i], dels[j], order) })
+	sort.Slice(dups, func(i, j int) bool { return sort2(dups[i], dups[j], order) })
+
+	for _, d := range dels {
+		delf.WriteString(d.String(breakHalf))
+		delf.Write([]byte{'\n'})
+	}
+	for _, d := range dups {
+		dupf.WriteString(d.String(breakHalf))
+		dupf.Write([]byte{'\n'})
 	}
 
 }
 
-func lumpy_filter_cmd(xam string, outdir string, threads int, project string) filtered {
+func lumpy_filter_cmd(xam string, outdir string, threads int, project string, reference string) filtered {
 	// check if .split.bam and .disc.bam exist. if they do, then use.
 	sm, err := indexcov.GetShortName(xam, strings.HasSuffix(xam, ".cram"))
 	check(err)
@@ -318,11 +394,11 @@ func lumpy_filter_cmd(xam string, outdir string, threads int, project string) fi
 
 	f := filtered{split: prefix + ".split.bam", disc: prefix + ".disc.bam", sample: sm, xam: xam, project: project}
 	// use .tmp.bam in case of error while running lumpy filter.
-	f.command = fmt.Sprintf("lumpy_filter %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", xam, f.split, f.disc, threads, f.split, f.split, f.disc, f.disc)
+	f.command = fmt.Sprintf("lumpy_filter -f %s %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", reference, xam, f.split, f.disc, threads, f.split, f.split, f.disc, f.disc)
 	return f
 }
 
-func lumpy_filters(bams []string, outdir string, project string, cmds chan string) (chan bool, []filtered) {
+func lumpy_filters(bams []string, outdir string, project string, reference string, cmds chan string) (chan bool, []filtered) {
 	filts := make([]filtered, len(bams))
 	threads := 1
 	if runtime.GOMAXPROCS(0) > len(bams) {
@@ -330,7 +406,7 @@ func lumpy_filters(bams []string, outdir string, project string, cmds chan strin
 	}
 	done := make(chan bool)
 	for i, b := range bams {
-		filts[i] = lumpy_filter_cmd(b, outdir, threads, project)
+		filts[i] = lumpy_filter_cmd(b, outdir, threads, project, reference)
 	}
 
 	go func() {
@@ -352,7 +428,7 @@ func processor(cmds chan string) chan bool {
 		for c := range process.Runner(cmds, make(chan bool), &process.Options{}) {
 			if c.ExitCode() != 0 {
 				anyError = c.Err
-				logger.Println(c.Err)
+				logger.Println(c.Err, c.String())
 				break
 			}
 			c.Cleanup()
@@ -414,7 +490,7 @@ type reader struct {
 
 func (r *reader) Close() error {
 	if err := r.cmd.Wait(); err != nil {
-		return err
+		return errors.Wrap(err, "error closing cram reader")
 	}
 	return r.ReadCloser.Close()
 }
@@ -434,11 +510,11 @@ func NewReader(path string, rd int, fasta string) (*bam.Reader, error) {
 		cmd.Stderr = logger
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error getting stdout for process")
 		}
 		if err = cmd.Start(); err != nil {
 			pipe.Close()
-			return nil, err
+			return nil, errors.Wrap(err, "error starting process")
 		}
 		rdr = &reader{ReadCloser: pipe, cmd: cmd}
 	}
@@ -540,18 +616,24 @@ func main() {
 	}
 
 	here, _ := filepath.Abs(".")
-	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500, ExcludeChroms: "hs37d5"}
+	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500, ExcludeChroms: "hs37d5,~:,~^GL"}
 
 	arg.MustParse(&cli)
+	var err error
+	cli.Fasta, err = filepath.Abs(cli.Fasta)
+	check(err)
+	cli.OutDir, err = filepath.Abs(cli.OutDir)
+	check(err)
+
 	if err := os.MkdirAll(cli.OutDir, 0777); err != nil {
 		panic(err)
 	}
 	runtime.GOMAXPROCS(cli.Processes)
 
-	cmds := make(chan string)
+	cmds := make(chan string, 1)
 	pdone := processor(cmds) // processor executes the bash commands as it gets them.
 
-	lumpy_filter_done, splits := lumpy_filters(cli.Bams, cli.OutDir, cli.Name, cmds)
+	lumpy_filter_done, splits := lumpy_filters(cli.Bams, cli.OutDir, cli.Name, cli.Fasta, cmds)
 	fmt.Fprintln(logger, "sent lumpy_filter commands")
 	bam_stats(splits, cli.Fasta, cli.OutDir)
 
@@ -559,18 +641,19 @@ func main() {
 	if _, err := exec.LookPath("cnvnator"); err == nil {
 		has_cnvnator = true
 		fmt.Fprintln(logger, "sending cnvnator commands")
-		<-cnvnators(splits, cli.Fasta, cli.OutDir, 500, cmds)
+		<-cnvnators(splits, cli.Fasta, cli.OutDir, 500, strings.Split(cli.ExcludeChroms, ","), cmds)
 	}
 	<-lumpy_filter_done
 	close(cmds)
 	<-pdone
 	if has_cnvnator {
 		for _, b := range splits {
-			cnvnatorToBedPe(b, cli.OutDir)
+			cnvnatorToBedPe(b, cli.OutDir, cli.Fasta)
 		}
 	}
 	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
-	remove_high_depths(splits, cli.MaxDepth, cli.Exclude, filter_chroms)
+	remove_high_depths(splits, cli.MaxDepth, cli.Fasta, cli.Exclude, filter_chroms)
+	logger.Print("starting lumpy")
 
 	p := run_lumpy(splits, cli.Fasta, cli.OutDir, has_cnvnator, cli.Exclude, cli.Name)
 	vcf := run_svtypers(p, cli.OutDir, cli.Fasta, cli.Exclude, splits, cli.Name)

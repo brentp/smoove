@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/biogo/hts/bam"
 	"github.com/brentp/goleft/depth"
-	"github.com/brentp/lumpy-smoother/evidencewindow"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -24,7 +24,7 @@ const MinMapQuality = byte(20)
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
-func remove_high_depth(fbam string, maxdepth int, fexclude string, filter_chroms []string) {
+func remove_high_depth(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
 	t0 := time.Now()
 
 	f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
@@ -36,7 +36,7 @@ export MOSDEPTH_Q0=OK
 export MOSDEPTH Q1=HIGH
 set -euo pipefail
 samtools index {{bam}}
-mosdepth -n --quantize {{md1}}: {{prefix}} {{bam}}
+mosdepth -f {{fasta}} -n --quantize {{md1}}: {{prefix}} {{bam}}
 rm {{prefix}}.mosdepth.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
 `
@@ -44,6 +44,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 		"md1":    strconv.Itoa(maxdepth + 1),
 		"prefix": f.Name(),
 		"bam":    fbam,
+		"fasta":  fasta,
 	}
 
 	c := fasttemplate.New(cmd, "{{", "}}")
@@ -150,50 +151,50 @@ rm {{prefix}}.quantized.bed.gz.csi
 
 func contains(haystack []string, needle string) bool {
 	for _, h := range haystack {
-		if h == needle {
+		if h[0] != '~' && h == needle {
 			return true
+		}
+		if h[0] == '~' {
+			if match, _ := regexp.MatchString(h[1:], needle); match {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-func remove_high_depths(bams []filtered, maxdepth int, fexclude string, filter_chroms []string) {
+func remove_high_depths(bams []filtered, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
 		logger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
 		return
 	}
 
-	ch := make(chan string, runtime.GOMAXPROCS(0))
 	pch := make(chan []string, runtime.GOMAXPROCS(0))
 	var wg sync.WaitGroup
 
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		wg.Add(1)
 		go func() {
-			for bam := range ch {
-				remove_high_depth(bam, maxdepth, fexclude, filter_chroms)
-			}
 			for pair := range pch {
+				remove_high_depth(pair[0], maxdepth, fasta, fexclude, filter_chroms)
+				remove_high_depth(pair[1], maxdepth, fasta, fexclude, filter_chroms)
 				proc := exec.Command("bash", "-c", fmt.Sprintf("samtools index %s && samtools index %s", pair[0], pair[1]))
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())
-				newbams := evidencewindow.EvidenceRemoval(&evidencewindow.Args{Window: 1500, Evidence: 2, Bams: pair})
-				check(os.Rename(newbams[0], pair[0]))
-				check(os.Rename(newbams[1], pair[1]))
-				os.Remove(pair[0] + ".bai")
-				os.Remove(pair[1] + ".bai")
+				/*
+					newbams := evidencewindow.EvidenceRemoval(&evidencewindow.Args{Window: 1500, Evidence: 2, Bams: pair})
+					check(os.Rename(newbams[0], pair[0]))
+					check(os.Rename(newbams[1], pair[1]))
+					os.Remove(pair[0] + ".bai")
+					os.Remove(pair[1] + ".bai")
+				*/
 			}
 			wg.Done()
 		}()
 	}
 
-	for _, b := range bams {
-		ch <- b.disc
-		ch <- b.split
-	}
-	close(ch)
 	for _, b := range bams {
 		pch <- []string{b.disc, b.split}
 	}
