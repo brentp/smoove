@@ -35,7 +35,10 @@ cd $basedir
 wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.1/batchit
 chmod +x /usr/bin/batchit
 
-pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 svtyper
+pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2
+
+git clone -b debug https://github.com/brentp/svtyper
+cd svtyper && python setup.py install
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
 chmod +x /usr/local/bin/mosdepth

@@ -600,7 +600,7 @@ func main() {
 	}
 
 	here, _ := filepath.Abs(".")
-	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500, ExcludeChroms: "hs37d5,~:,~^GL"}
+	cli := cliargs{Processes: runtime.GOMAXPROCS(0), OutDir: here, MaxDepth: 500, ExcludeChroms: "hs37d5,~:,~^GL,~decoy"}
 
 	arg.MustParse(&cli)
 	var err error
@@ -706,7 +706,7 @@ func fixReference(line string, fa *faidx.Faidx) string {
 	pos, err := strconv.Atoi(toks[1])
 	check(err)
 
-	r, err := fa.At(toks[0], pos-1)
+	r, err := fa.At(toks[0], pos-2)
 	check(err)
 	toks[3] = string(r)
 

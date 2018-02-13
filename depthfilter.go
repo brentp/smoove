@@ -236,6 +236,7 @@ func singletonfilter(fbam string) {
 	for {
 		rec, err := br.Read()
 		if rec != nil {
+			//counts[rec.Name[1:]]++
 			counts[rec.Name]++
 		}
 		if err == io.EOF {
