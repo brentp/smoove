@@ -17,6 +17,7 @@ import (
 	"sync"
 	"text/template"
 	"time"
+	"unicode"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/biogo/biogo/io/seqio/fai"
@@ -706,8 +707,12 @@ func fixReference(line string, fa *faidx.Faidx) string {
 	pos, err := strconv.Atoi(toks[1])
 	check(err)
 
-	r, err := fa.At(toks[0], pos-2)
+	r, err := fa.At(toks[0], pos-1)
 	check(err)
+	r = byte(unicode.ToUpper(rune(r)))
+	if r != 'A' || r != 'C' || r != 'T' || r != 'G' {
+		r = 'N'
+	}
 	toks[3] = string(r)
 
 	return strings.Join(toks, "\t")
