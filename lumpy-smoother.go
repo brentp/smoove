@@ -122,9 +122,7 @@ func check(e error) {
 type cnvargs struct {
 	Sample    string
 	OutDir    string
-	Achroms   string
-	Bchroms   string
-	Cchroms   string
+	Chroms    []string
 	Bam       string
 	Bin       int
 	Reference string
@@ -135,14 +133,14 @@ const SVTYPER_LINES = 300
 const cnvnator_cmd = `
 set -euo pipefail
 cd {{.OutDir}}
-export REF_PATH={{.OutDir}}
+export REF_PATH=
 
-# split to make 3 chunks to use less mem.
+# split to make n chunks to use less mem.
 # use STDIN to get around https://github.com/abyzovlab/CNVnator/issues/101
 # this requires a specific branch of cnvnator: https://github.com/brentp/CNVnator/tree/stdin
-samtools view -T {{.Reference}} -u {{.Bam}} {{.Achroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Achroms}} -unique -tree
-samtools view -T {{.Reference}} -u {{.Bam}} {{.Bchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Bchroms}} -unique -tree
-samtools view -T {{.Reference}} -u {{.Bam}} {{.Cchroms}} | cnvnator -root {{.Sample}}.root -chrom {{.Cchroms}} -unique -tree
+{{range .Chroms}}
+samtools view -T {{$.Reference}} -u {{$.Bam}} {{.}} | cnvnator -root {{$.Sample}}.root -chrom {{.}} -unique -tree
+{{end}}
 
 cnvnator -root {{.Sample}}.root -his {{.Bin}}
 cnvnator -root {{.Sample}}.root -stat {{.Bin}}
@@ -161,8 +159,7 @@ func cnvnator(bam filtered, chunks []string, ref string, outdir string, bin int)
 	check(err)
 
 	var buf bytes.Buffer
-	ca := cnvargs{Sample: bam.sample, OutDir: outdir, Reference: ref, Achroms: chunks[0], Bchroms: chunks[1],
-		Cchroms: chunks[2], Bam: bampath, Bin: bin}
+	ca := cnvargs{Sample: bam.sample, OutDir: outdir, Reference: ref, Chroms: chunks, Bam: bampath, Bin: bin}
 	t, err := template.New(bam.sample).Parse(cnvnator_cmd)
 	check(err)
 	check(t.Execute(&buf, ca))
@@ -236,7 +233,7 @@ func cnvnators(bams []filtered, ref string, outdir string, bin int, excludeChrom
 
 	fa, err := faidx.New(ref)
 	check(err)
-	sp := split(fa, 3, outdir, excludeChroms)
+	sp := split(fa, 4, outdir, excludeChroms)
 	fa.Close()
 
 	for _, b := range bams {
