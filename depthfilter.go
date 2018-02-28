@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,11 +16,145 @@ import (
 	"time"
 
 	"github.com/biogo/hts/bam"
+	"github.com/biogo/hts/sam"
 	"github.com/brentp/goleft/depth"
 	"github.com/valyala/fasttemplate"
 )
 
 const MinMapQuality = byte(20)
+
+type sm struct {
+	soft  int
+	hard  int
+	match int
+}
+
+func (s *sm) total() float64 {
+	return float64(s.match + s.hard + s.soft)
+}
+
+func (s *sm) pMatch() float64 {
+	return float64(s.match) / s.total()
+}
+
+func (s *sm) pSkip() float64 {
+	return float64(s.hard+s.soft) / s.total()
+}
+
+// count soft clips and matches in a read
+func softMatchCount(r *sam.Record) sm {
+	s := sm{}
+
+	for _, cig := range r.Cigar {
+		if cig.Type() == sam.CigarSoftClipped {
+			s.soft += cig.Len()
+		} else if cig.Type() == sam.CigarHardClipped {
+			s.hard += cig.Len()
+		} else if cig.Type() == sam.CigarMatch {
+			s.match += cig.Len()
+		}
+	}
+	return s
+}
+
+func abs(a int) int {
+	if a > 0 {
+		return a
+	}
+	return -a
+}
+
+func interOrDistant(r *sam.Record) bool {
+	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 10000000)
+}
+
+// 1. interchromsomal discordant with an XA (maybe only with an XA that would be concordant)?
+// 2. splitters where both end ops are soft-clips. e.g. discard 20S106M34S, but keep 87S123M
+// 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
+// 4. an interchromosomal with NM tag and NM > 3 is skipped.
+// NOTE: "interchromosomal" here includes same chrom with end > 10MB away.
+func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
+	if interOrDistant(r) {
+		// skip interchromosomal with XA
+		if _, ok := r.Tag([]byte{'X', 'A'}); ok {
+			return true
+		}
+		if nm, ok := r.Tag([]byte{'N', 'M'}); ok {
+			if v, ok := nm.Value().(uint32); ok {
+				if v > 3 {
+					return true
+				}
+			} else if v, ok := nm.Value().(int32); ok {
+				if v > 3 {
+					return true
+				}
+			}
+		}
+
+		// skip inter-chrom with >XX% soft if no SA
+		if s := softMatchCount(r); s.pSkip() > 0.35 {
+			tags, ok := r.Tag([]byte{'S', 'A'})
+			if !ok {
+				return true
+			}
+			hasSpl := false
+			// look for splitter to matechrom
+			atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+			for _, t := range atags {
+				pieces := bytes.Split(t, []byte{','})
+				if string(pieces[0]) != r.MateRef.Name() {
+					continue
+				}
+				pos, err := strconv.Atoi(string(pieces[1]))
+				if err != nil {
+					continue
+				}
+				if abs(pos-r.MatePos) < 100000 {
+					hasSpl = true
+					break
+				}
+			}
+			if !hasSpl {
+				return true
+			} else {
+				return true
+			}
+		}
+
+	}
+	// if flanked by 'S'and right side is > 5 bases
+	//if interOrDistant(r) {
+	cig := r.Cigar
+	if cig[0].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Len() > 5 {
+		return true
+	}
+	//}
+	// splitter flanked by 'S'
+	if tags, ok := r.Tag([]byte{'S', 'A'}); ok {
+		atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+		for _, t := range atags {
+			// skip things with a splitter that starts and ends with 'S'
+			pieces := bytes.Split(t, []byte{','})
+			cigar := string(pieces[3])
+			if cigar[len(cigar)-1] != 'S' {
+				continue
+			}
+			var first rune
+			for _, first = range cigar {
+				if '0' <= first && first <= '9' {
+					continue
+				}
+				break
+			}
+			if first != 'S' {
+				continue
+			}
+			return true
+		}
+
+	}
+	return false
+}
 
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
@@ -72,6 +207,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	var rmLast bool
 
 	removed, tot := 0, 0
+	badInter := 0
 	for {
 		rec, err := br.Read()
 		if rec != nil {
@@ -79,6 +215,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 			rchrom := rec.Ref.Name()
 			if rec.MapQ < MinMapQuality {
 				removed++
+				continue
+			}
+			if sketchyInterchromosomalOrSplit(rec) {
+				badInter++
 				continue
 			}
 
@@ -143,9 +283,12 @@ rm {{prefix}}.quantized.bed.gz.csi
 	pct := float64(removed) / float64(tot) * 100
 	logger.Printf("removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
-	if !strings.HasSuffix(fbam, ".split.bam") {
-		singletonfilter(fbam)
-	}
+	pct = float64(badInter) / float64(tot) * 100
+	logger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
+		badInter, tot, pct, filepath.Base(fbam))
+	//if !strings.HasSuffix(fbam, ".split.bam") {
+	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"))
+	//}
 
 }
 
@@ -223,7 +366,7 @@ func cp(dst, src string) error {
 	return d.Close()
 }
 
-func singletonfilter(fbam string) {
+func singletonfilter(fbam string, split bool) {
 
 	f, err := os.Open(fbam)
 	check(err)
@@ -236,8 +379,12 @@ func singletonfilter(fbam string) {
 	for {
 		rec, err := br.Read()
 		if rec != nil {
-			//counts[rec.Name[1:]]++
-			counts[rec.Name]++
+			name := rec.Name
+			if split {
+				// split sets first letter to A or B. Here we normalize.
+				name = "A" + name[1:]
+			}
+			counts[name]++
 		}
 		if err == io.EOF {
 			break
@@ -260,11 +407,15 @@ func singletonfilter(fbam string) {
 		// skip any singleton read as long as it's not a splitter.
 		if rec != nil {
 			tot += 1
-			if counts[rec.Name] == 1 {
-				if _, ok := rec.Tag([]byte{'S', 'A'}); !ok {
-					removed++
-					continue
-				}
+			name := rec.Name
+			if split {
+				name = "A" + name[1:]
+			}
+			if counts[name] == 1 {
+				//if _, ok := rec.Tag([]byte{'S', 'A'}); !ok {
+				removed++
+				continue
+				//}
 			}
 			check(bw.Write(rec))
 		}

@@ -198,7 +198,7 @@ func writeFa(fa *faidx.Faidx, r fai.Record, outdir string) {
 
 func split(fa *faidx.Faidx, n int, outdir string, excludeChroms []string) []string {
 	sp := make([]string, n)
-	// split the chroms into 3 chunks that are relatively even by total bases.
+	// split the chroms into n chunks that are relatively even by total bases.
 	seqs := make([]fai.Record, 0, len(fa.Index))
 	var tot int
 	for _, v := range fa.Index {
@@ -397,6 +397,7 @@ func lumpy_filters(bams []string, outdir string, project string, reference strin
 	}
 	for i, b := range bams {
 		filts[i] = lumpy_filter_cmd(b, outdir, threads, project, reference)
+		log.Println(filts[i].command)
 		pool.Add(shpool.Process{Command: filts[i].command, CPUs: 1, Prefix: "lumpy-filter"})
 	}
 
