@@ -430,5 +430,5 @@ func singletonfilter(fbam string, split bool) {
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)
-	logger.Printf("removed %d singletons out of %d (%.2f%%), non-splitter reads from %s", removed, tot, pct, filepath.Base(f.Name()))
+	logger.Printf("removed %d singletons out of %d reads (%.2f%%) from %s", removed, tot, pct, filepath.Base(f.Name()))
 }
