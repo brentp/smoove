@@ -71,6 +71,8 @@ func has_prog(p string) string {
 
 func (cliargs) Description() string {
 	tmpl := `
+
+version: 0.1.0
 lumpy-smoother: call and genotype structural variants in parallel 
 
 lumpy-smoother calls several programs. Those with 'Y' are found on
@@ -529,7 +531,7 @@ func run_lumpy(bams []filtered, fa string, outdir string, has_cnvnator bool, exc
 		panic("[lumpy-smoother] lumpy not found on path")
 	}
 
-	lumpy_tmpl := "set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 "
+	lumpy_tmpl := "set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 -P "
 	pe_tmpl := "-pe id:{{.Sample}},bam_file:{{.DiscPath}},histo_file:{{.HistPath}},mean:{{.Mean}},stdev:{{.Std}},read_length:{{.ReadLength}},min_non_overlap:{{.ReadLength}},discordant_z:4,back_distance:30,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
 	sr_tmpl := "-sr id:{{.Sample}},bam_file:{{.SplitPath}},back_distance:10,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
 
