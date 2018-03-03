@@ -88,6 +88,7 @@ func Cnvnator(bam string, name string, fasta string, outDir string, bin int, exc
 	check(ft.Close())
 	time.Sleep(100 * time.Millisecond)
 	p := exec.Command("bash " + ft.Name())
+	// TODO: convert to del/dup.bedpe
 	return p.Run()
 }
 

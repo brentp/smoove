@@ -94,6 +94,8 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		// run svtyper the first time to get the lib
 		cmd := fmt.Sprintf("svtyper -B %s -T %s -l %s", strings.Join(bam_paths, ","), reference, lib)
 		p := exec.Command("bash", "-c", cmd)
+		p.Stderr = shared.Slogger
+		p.Stdout = shared.Slogger
 		check(p.Run())
 	}
 
@@ -117,7 +119,8 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 				}
 				rdr, err := xopen.Ropen(f)
 				check(err)
-				io.Copy(out, rdr)
+				_, err = io.Copy(out, rdr)
+				check(err)
 			}
 			wg.Done()
 		}()
