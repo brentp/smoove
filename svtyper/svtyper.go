@@ -55,6 +55,7 @@ func writeTmp(header []string, lines []string) string {
 	return f.Name()
 }
 
+// Svtyper parellelizes genotyping of the vcf and writes the the writer.
 func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string) {
 
 	b := bufio.NewReader(vcf)
@@ -68,9 +69,13 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 			line, err := b.ReadString('\n')
 			if len(line) > 0 {
 				if line[0] == '#' {
+					if strings.HasPrefix(line, "#CHROM") {
+						line = strings.TrimSpace(strings.Join(strings.Split(line, "\t")[:8], "\t")) + "\n"
+					}
 					header = append(header, line)
 					continue
 				}
+				line = strings.TrimSpace(strings.Join(strings.Split(line, "\t")[:8], "\t")) + "\n"
 				lines = append(lines, line)
 				if len(lines) < chunkSize || (len(lines) == chunkSize && isFirstBnd(line)) {
 					continue
@@ -82,8 +87,13 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 			}
 			check(err)
 		}
+		if len(lines) > 0 {
+			ch <- writeTmp(header, lines)
+		}
 	}()
 	out := bufio.NewWriter(outvcf)
+	var mu sync.Mutex
+	var headerPrinted = false
 	_, err := exec.LookPath("svtyper")
 	hasSvtyper := err == nil
 	var lib string
@@ -119,8 +129,31 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 				}
 				rdr, err := xopen.Ropen(f)
 				check(err)
-				_, err = io.Copy(out, rdr)
-				check(err)
+				mu.Lock()
+				if !headerPrinted {
+					_, err = io.Copy(out, rdr)
+					headerPrinted = true
+					mu.Unlock()
+					continue
+				}
+				// already printed header...
+				// so skip passed it.
+				for {
+					line, err := rdr.ReadString('\n')
+					if len(line) != 0 {
+						if line[0] == '#' {
+							continue
+						}
+						out.WriteString(line)
+						io.Copy(out, rdr)
+						break
+					}
+					if err == io.EOF {
+						break
+					}
+					check(err)
+				}
+				mu.Unlock()
 			}
 			wg.Done()
 		}()
