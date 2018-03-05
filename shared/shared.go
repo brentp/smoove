@@ -18,6 +18,13 @@ type Logger struct {
 
 const Prefix = "[smoove]"
 
+func HasProg(p string) string {
+	if _, err := exec.LookPath(p); err == nil {
+		return "Y"
+	}
+	return " "
+}
+
 func (l *Logger) Write(b []byte) (int, error) {
 	l.Logger.Printf(string(b))
 	return len(b), nil

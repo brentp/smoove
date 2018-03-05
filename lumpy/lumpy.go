@@ -25,14 +25,15 @@ import (
 )
 
 type cliargs struct {
-	Name          string   `arg:"-n,required,help:project name used in output files."`
-	Fasta         string   `arg:"-f,required,help:fasta file."`
-	Exclude       string   `arg:"-e,help:BED of exclude regions."`
-	ExcludeChroms string   `arg:"-C,help:ignore SVs with either end in this comma-delimited list of chroms. If this starts with ~ it is treated as a regular expression to exclude."`
-	Processes     int      `arg:"-p,help:number of processors to parallelize."`
-	OutDir        string   `arg:"-o,help:output directory."`
-	Svtyper       bool     `arg:"-s,help:run svtyper directly on output"`
-	Bams          []string `arg:"positional,required,help:path to bam(s) to call."`
+	Name           string   `arg:"-n,required,help:project name used in output files."`
+	Fasta          string   `arg:"-f,required,help:fasta file."`
+	Exclude        string   `arg:"-e,help:BED of exclude regions."`
+	ExcludeChroms  string   `arg:"-C,help:ignore SVs with either end in this comma-delimited list of chroms. If this starts with ~ it is treated as a regular expression to exclude."`
+	Processes      int      `arg:"-p,help:number of processors to parallelize."`
+	OutDir         string   `arg:"-o,help:output directory."`
+	NoExtraFilters bool     `arg:"-F,help:use lumpy_filter only without extra smoove filters."`
+	Svtyper        bool     `arg:"-s,help:run svtyper directly on output"`
+	Bams           []string `arg:"positional,required,help:path to bam(s) to call."`
 }
 
 func (c cliargs) Description() string {
@@ -91,7 +92,7 @@ func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 	return f
 }
 
-func Lumpy(project, reference string, outdir string, bam_paths []string, out io.Writer, pool *shpool.Pool, exclude_bed string, filter_chroms []string) *exec.Cmd {
+func Lumpy(project, reference string, outdir string, bam_paths []string, out io.Writer, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool) *exec.Cmd {
 	if pool == nil {
 		pool = shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: shared.Prefix})
 	}
@@ -108,7 +109,7 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, out io.
 		panic(err)
 	}
 
-	remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms)
+	remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms, extraFilters)
 	shared.Slogger.Print("starting lumpy")
 	p := run_lumpy(filters, reference, outdir, false, project)
 	return p
@@ -191,6 +192,7 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 	shared.Slogger.Print("done calculating bam stats\n")
 }
 
+// filter BND variants from in that have < bndSupport
 func bndFilter(in io.Reader, bndSupport int) io.Reader {
 	r, w := io.Pipe()
 	b := bufio.NewReader(in)
@@ -207,7 +209,7 @@ func bndFilter(in io.Reader, bndSupport int) io.Reader {
 				}
 				// only filter out BNDs with < X pieces of evidence when we're streaming directly from lumpy.
 				if strings.Contains(line, "SVTYPE=BND") {
-					toks := strings.SplitN(line, "\t", 10)
+					toks := strings.SplitN(line, "\t", 9)
 					// BND elements have different filtering set by command-line.
 					idx0 := strings.Index(toks[7], ";SU=") + 4
 					if idx0 != 3 {
@@ -246,7 +248,7 @@ func Main() {
 	if cli.OutDir == "" {
 		cli.OutDir = "./"
 	}
-	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, wtr, nil, cli.Exclude, filter_chroms)
+	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, wtr, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters)
 	p.Stderr = shared.Slogger
 	var err error
 	ivcf, err := p.StdoutPipe()
@@ -258,7 +260,7 @@ func Main() {
 	vcf := bndFilter(ivcf, BndSupport)
 
 	if cli.Svtyper {
-		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams)
+		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name)
 	} else {
 		io.Copy(wtr, vcf)
 	}

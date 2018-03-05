@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 
 type cliargs struct {
 	Name      string   `arg:"-n,required,help:project name used in output files."`
+	OutDir    string   `arg:"-o,help:output directory."`
 	Fasta     string   `arg:"-f,required,help:fasta file."`
 	Processes int      `arg:"-p,help:number of processors to use."`
 	VCF       string   `arg:"-v,required,help:vcf to genotype (use - for stdin)."`
@@ -57,7 +59,7 @@ func writeTmp(header []string, lines []string) string {
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
 // p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
-func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string) {
+func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string, outdir, name string) {
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
@@ -97,25 +99,39 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 			ch <- writeTmp(header, lines)
 		}
 	}()
-	out := bufio.NewWriter(outvcf)
+
+	var psort *exec.Cmd
+	var si io.WriteCloser
+
+	// need a multiwriter to write to both stdout and potentially to the gsort+bcftools process
+	var out *bufio.Writer = bufio.NewWriter(outvcf)
+
+	if shared.HasProg("gsort") == "Y" && shared.HasProg("bcftools") == "Y" {
+		o := filepath.Join(outdir, name) + "." + "svtyped.vcf.gz"
+		shared.Slogger.Printf("writing sorted, indexed file to %s", o)
+		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z -c 1 -o %s && bcftools index --csi %s", reference, o, o))
+		psort.Stderr = shared.Slogger
+		var err error
+		si, err = psort.StdinPipe()
+		check(err)
+		out = bufio.NewWriter(io.MultiWriter(outvcf, si))
+		check(psort.Start())
+	}
 	var mu sync.Mutex
 	var headerPrinted = false
-	_, err := exec.LookPath("svtyper")
-	hasSvtyper := err == nil
 	var lib string
-	if hasSvtyper {
-		flib, err := tempclean.TempFile("", "svtype-lib")
-		check(err)
-		check(flib.Close())
-		check(os.Remove(flib.Name()))
-		lib = flib.Name()
-		// run svtyper the first time to get the lib
-		cmd := fmt.Sprintf("svtyper -B %s -T %s -l %s -o -", strings.Join(bam_paths, ","), reference, lib)
-		p := exec.Command("bash", "-c", cmd)
-		p.Stderr = shared.Slogger
-		p.Stdout = shared.Slogger
-		check(p.Run())
-	}
+	flib, err := tempclean.TempFile("", "svtype-lib")
+	check(err)
+	check(flib.Close())
+	check(os.Remove(flib.Name()))
+	lib = flib.Name()
+
+	// run svtyper the first time to get the lib
+	//cmd := fmt.Sprintf("svtyper -B %s -T %s -l %s -o -", strings.Join(bam_paths, ","), reference, lib)
+	p := exec.Command("svtyper", "-B", strings.Join(bam_paths, ","), "-T", reference, "-l", lib, "-o", "-")
+	p.Stderr = shared.Slogger
+	p.Stdout = shared.Slogger
+	check(p.Run())
 
 	var wg sync.WaitGroup
 	// read from the channel to svtype in parallel.
@@ -124,18 +140,14 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		go func() {
 			for tmpf := range ch {
 				f := tmpf
-				if hasSvtyper { // genotype
-					t, err := tempclean.TempFile("", "lumpy-smoother-svtyper-tmp-")
-					check(err)
-					t.Close()
-					cmd := fmt.Sprintf("svtyper -i %s -B %s --max_reads 1000 -T %s -l %s -o %s", f, strings.Join(bam_paths, ","), reference, lib, t.Name())
-
-					p := exec.Command("bash", "-c", cmd)
-					p.Stderr = shared.Slogger
-					p.Stdout = shared.Slogger
-					check(p.Run())
-					f = t.Name()
-				}
+				t, err := tempclean.TempFile("", "lumpy-smoother-svtyper-tmp-")
+				check(err)
+				t.Close()
+				p := exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "1000", "-T", reference, "-l", lib, "-o", t.Name())
+				p.Stderr = shared.Slogger
+				p.Stdout = shared.Slogger
+				check(p.Run())
+				f = t.Name()
 				rdr, err := xopen.Ropen(f)
 				check(err)
 				mu.Lock()
@@ -164,10 +176,15 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 				}
 				mu.Unlock()
 			}
+			check(out.Flush())
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+	if psort != nil {
+		check(si.Close())
+		check(psort.Wait())
+	}
 }
 
 const BndSupport = 6
@@ -183,5 +200,5 @@ func Main() {
 	wtr := bufio.NewWriter(os.Stdout)
 	defer wtr.Flush()
 	defer rdr.Close()
-	Svtyper(rdr, wtr, cli.Fasta, cli.Bams)
+	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name)
 }

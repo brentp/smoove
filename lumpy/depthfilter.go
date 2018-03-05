@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -160,12 +161,14 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
-func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
+func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) {
 	t0 := time.Now()
 
 	var t map[string]*interval.IntTree
 
-	if _, err := exec.LookPath("mosdepth"); err == nil {
+	//if _, err := exec.LookPath("mosdepth"); err == nil {
+	log.Println("removed mosdepth for debugging")
+	if _, err := exec.LookPath("mosdepth"); err != nil && extraFilters {
 
 		f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
 		check(err)
@@ -197,6 +200,8 @@ rm {{prefix}}.quantized.bed.gz.csi
 		defer os.Remove(fbam + ".bai")
 
 		t = depth.ReadTree(f.Name()+".quantized.bed.gz", fexclude)
+	} else {
+		t = depth.ReadTree(fexclude)
 	}
 
 	fbr, err := os.Open(fbam)
@@ -221,6 +226,18 @@ rm {{prefix}}.quantized.bed.gz.csi
 			rchrom := rec.Ref.Name()
 			if rec.MapQ < MinMapQuality {
 				removed++
+				continue
+			}
+
+			// remove it chrom is found and it overlaps a high-coverage region.
+			if tt, ok := t[rec.Ref.Name()]; ok {
+				if depth.Overlaps(tt, rec.Start(), rec.End()) {
+					removed++
+					continue
+				}
+			}
+			if !extraFilters {
+				check(bw.Write(rec))
 				continue
 			}
 			if sketchyInterchromosomalOrSplit(rec) {
@@ -252,14 +269,6 @@ rm {{prefix}}.quantized.bed.gz.csi
 				}
 			}
 			// END block to check if it's in filter chroms
-
-			// remove it chrom is found and it overlaps a high-coverage region.
-			if tt, ok := t[rec.Ref.Name()]; ok {
-				if depth.Overlaps(tt, rec.Start(), rec.End()) {
-					removed++
-					continue
-				}
-			}
 			// if we made it here, we know the chrom is OK.
 			// so check if mate is from a different chromosome and exclude if mate from filtered chroms
 			if rec.MateRef.ID() != rec.Ref.ID() && shared.Contains(filter_chroms, rec.MateRef.Name()) {
@@ -298,7 +307,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 
 }
 
-func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
+func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
 		shared.Slogger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
@@ -311,8 +320,8 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 		wg.Add(1)
 		go func() {
 			for pair := range pch {
-				remove_sketchy(pair[0], maxdepth, fasta, fexclude, filter_chroms)
-				remove_sketchy(pair[1], maxdepth, fasta, fexclude, filter_chroms)
+				remove_sketchy(pair[0], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
+				remove_sketchy(pair[1], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
 				proc := exec.Command("bash", "-c", fmt.Sprintf("samtools index %s && samtools index %s", pair[0], pair[1]))
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
