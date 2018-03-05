@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -91,7 +92,21 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 					header = append(header, line)
 					continue
 				}
-				line = strings.TrimSpace(strings.Join(strings.Split(line, "\t")[:8], "\t")) + "\n"
+				toks := strings.SplitN(line, "\t", 10)[:8]
+				// only filter out BNDs with < X pieces of evidence when we're streaming directly from lumpy.
+				if p != nil && strings.Contains(toks[7], "SVTYPE=BND") {
+					// BND elements have different filtering set by command-line.
+					idx0 := strings.Index(toks[7], ";SU=") + 4
+					if idx0 != 3 {
+						idx1 := idx0 + strings.Index(toks[7][idx0:], ";")
+						vstr := toks[7][idx0:idx1]
+						v, err := strconv.Atoi(vstr)
+						if err == nil && v < BndSupport {
+							continue
+						}
+					}
+				}
+				line = strings.TrimSpace(strings.Join(toks, "\t")) + "\n"
 				lines = append(lines, line)
 				if len(lines) < chunkSize || (len(lines) == chunkSize && isFirstBnd(line)) {
 					continue
@@ -185,6 +200,8 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		check(p.Wait())
 	}
 }
+
+const BndSupport = 6
 
 func Main() {
 	cli := cliargs{VCF: "-", Processes: 3}
