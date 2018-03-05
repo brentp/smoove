@@ -106,9 +106,9 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, out io.
 	if err := pool.Wait(); err != nil {
 		panic(err)
 	}
-	shared.Slogger.Print("starting lumpy")
 
 	remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms)
+	shared.Slogger.Print("starting lumpy")
 	p := run_lumpy(filters, reference, outdir, false, project)
 	return p
 }

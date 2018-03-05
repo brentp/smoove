@@ -16,6 +16,7 @@ import (
 
 	"github.com/biogo/hts/bam"
 	"github.com/biogo/hts/sam"
+	"github.com/biogo/store/interval"
 	"github.com/brentp/goleft/depth"
 	"github.com/brentp/lumpy-smoother/shared"
 	"github.com/valyala/fasttemplate"
@@ -162,11 +163,15 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
 	t0 := time.Now()
 
-	f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
-	check(err)
-	defer f.Close()
-	defer os.Remove(f.Name())
-	cmd := `
+	var t map[string]*interval.IntTree
+
+	if _, err := exec.LookPath("mosdepth"); err == nil {
+
+		f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
+		check(err)
+		defer f.Close()
+		defer os.Remove(f.Name())
+		cmd := `
 export MOSDEPTH_Q0=OK
 export MOSDEPTH Q1=HIGH
 set -euo pipefail
@@ -175,23 +180,24 @@ mosdepth -f {{fasta}} -n --quantize {{md1}}: {{prefix}} {{bam}}
 rm {{prefix}}.mosdepth.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
 `
-	vars := map[string]interface{}{
-		"md1":    strconv.Itoa(maxdepth + 1),
-		"prefix": f.Name(),
-		"bam":    fbam,
-		"fasta":  fasta,
+		vars := map[string]interface{}{
+			"md1":    strconv.Itoa(maxdepth + 1),
+			"prefix": f.Name(),
+			"bam":    fbam,
+			"fasta":  fasta,
+		}
+
+		c := fasttemplate.New(cmd, "{{", "}}")
+		s := c.ExecuteString(vars)
+		p := exec.Command("bash", "-c", s)
+		p.Stderr = os.Stderr
+		p.Stdout = os.Stderr
+		check(p.Run())
+		defer os.Remove(f.Name() + ".quantized.bed.gz")
+		defer os.Remove(fbam + ".bai")
+
+		t = depth.ReadTree(f.Name()+".quantized.bed.gz", fexclude)
 	}
-
-	c := fasttemplate.New(cmd, "{{", "}}")
-	s := c.ExecuteString(vars)
-	p := exec.Command("bash", "-c", s)
-	p.Stderr = os.Stderr
-	p.Stdout = os.Stderr
-	check(p.Run())
-	defer os.Remove(f.Name() + ".quantized.bed.gz")
-	defer os.Remove(fbam + ".bai")
-
-	t := depth.ReadTree(f.Name()+".quantized.bed.gz", fexclude)
 
 	fbr, err := os.Open(fbam)
 	check(err)
@@ -296,7 +302,6 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
 		shared.Slogger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
-		return
 	}
 
 	pch := make(chan []string, runtime.GOMAXPROCS(0))
