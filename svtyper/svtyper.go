@@ -59,7 +59,7 @@ func writeTmp(header []string, lines []string) string {
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
 // p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
-func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string, outdir, name string) {
+func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string, outdir, name string, excludeNonRef bool) {
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
@@ -109,7 +109,11 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 	if shared.HasProg("gsort") == "Y" && shared.HasProg("bcftools") == "Y" {
 		o := filepath.Join(outdir, name) + "." + "svtyped.vcf.gz"
 		shared.Slogger.Printf("writing sorted, indexed file to %s", o)
-		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z -c 1 -o %s && bcftools index --csi %s", reference, o, o))
+		exRef := ""
+		if excludeNonRef {
+			exRef = " -c 1"
+		}
+		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
 		psort.Stderr = shared.Slogger
 		var err error
 		si, err = psort.StdinPipe()
@@ -200,5 +204,5 @@ func Main() {
 	wtr := bufio.NewWriter(os.Stdout)
 	defer wtr.Flush()
 	defer rdr.Close()
-	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name)
+	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false)
 }

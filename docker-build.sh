@@ -4,7 +4,9 @@ set -euo pipefail
 basedir=$(pwd)
 
 cp ./lumpy-smoother /usr/local/bin
+cp ./smoove /usr/local/bin
 chmod +x /usr/local/bin/lumpy-smoother
+chmod +x /usr/local/bin/smoove
 
 # used by Dockerfile
 apt-get update

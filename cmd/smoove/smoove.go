@@ -10,6 +10,7 @@ import (
 	"github.com/brentp/goleft"
 	"github.com/brentp/lumpy-smoother/cnvnator"
 	"github.com/brentp/lumpy-smoother/lumpy"
+	"github.com/brentp/lumpy-smoother/merge"
 	"github.com/brentp/lumpy-smoother/svtyper"
 )
 
@@ -22,6 +23,7 @@ var progs = map[string]progPair{
 	"cnvnator": progPair{"call cnvnator and make bedpe files needed by lumpy", cnvnator.Main},
 	"svtyper":  progPair{"parallelize svtyper on an input VCF", svtyper.Main},
 	"lumpy":    progPair{"call lumpy after filtering bams", lumpy.Main},
+	"merge":    progPair{"merge and sort (using svtools) calls from multiple samples", merge.Main},
 }
 
 func printProgs() {

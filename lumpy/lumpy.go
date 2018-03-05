@@ -260,7 +260,7 @@ func Main() {
 	vcf := bndFilter(ivcf, BndSupport)
 
 	if cli.Svtyper {
-		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name)
+		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true)
 	} else {
 		io.Copy(wtr, vcf)
 	}
