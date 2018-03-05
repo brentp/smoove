@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -56,13 +57,28 @@ func writeTmp(header []string, lines []string) string {
 }
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
-func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string) {
+// p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
+func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string, p *exec.Cmd) {
+
+	if p != nil {
+		if vcf != nil {
+			log.Fatal("got non-nil VCF to Svtyper *and* a process expecting only one.")
+		}
+		var err error
+		vcf, err = p.StdoutPipe()
+		if err != nil {
+			log.Fatal(err)
+		}
+		p.Start()
+	}
 
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
 	ch := make(chan string, runtime.GOMAXPROCS(0))
-	//
+
+	// read directly from the vcf (or process) and send off to a channel.
+	// svtyper will receive from that channel to allow for parallelization.
 	go func() {
 		defer close(ch)
 		for {
@@ -80,7 +96,10 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 				if len(lines) < chunkSize || (len(lines) == chunkSize && isFirstBnd(line)) {
 					continue
 				}
+				// send chunk off for genotyping
 				ch <- writeTmp(header, lines)
+				// reset lines array.
+				lines = lines[:0]
 			}
 			if err == io.EOF {
 				break
@@ -100,9 +119,11 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 	if hasSvtyper {
 		flib, err := tempclean.TempFile("", "svtype-lib")
 		check(err)
+		check(flib.Close())
+		check(os.Remove(flib.Name()))
 		lib = flib.Name()
 		// run svtyper the first time to get the lib
-		cmd := fmt.Sprintf("svtyper -B %s -T %s -l %s", strings.Join(bam_paths, ","), reference, lib)
+		cmd := fmt.Sprintf("svtyper -B %s -T %s -l %s -o -", strings.Join(bam_paths, ","), reference, lib)
 		p := exec.Command("bash", "-c", cmd)
 		p.Stderr = shared.Slogger
 		p.Stdout = shared.Slogger
@@ -110,6 +131,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 	}
 
 	var wg sync.WaitGroup
+	// read from the channel to svtype in parallel.
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		wg.Add(1)
 		go func() {
@@ -119,7 +141,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 					t, err := tempclean.TempFile("", "lumpy-smoother-svtyper-tmp-")
 					check(err)
 					t.Close()
-					cmd := fmt.Sprintf("svtyper -i %s -B %s %s --max_reads 1000 -T %s -l %s -o %s", f, strings.Join(bam_paths, ","), vcf, reference, lib, t.Name())
+					cmd := fmt.Sprintf("svtyper -i %s -B %s --max_reads 1000 -T %s -l %s -o %s", f, strings.Join(bam_paths, ","), reference, lib, t.Name())
 
 					p := exec.Command("bash", "-c", cmd)
 					p.Stderr = shared.Slogger
@@ -159,6 +181,9 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		}()
 	}
 	wg.Wait()
+	if p != nil {
+		check(p.Wait())
+	}
 }
 
 func Main() {
@@ -170,5 +195,7 @@ func Main() {
 	rdr, err := xopen.Ropen(cli.VCF)
 	check(err)
 	wtr := bufio.NewWriter(os.Stdout)
-	Svtyper(rdr, wtr, cli.Fasta, cli.Bams)
+	defer wtr.Flush()
+	defer rdr.Close()
+	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, nil)
 }

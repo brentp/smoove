@@ -20,6 +20,7 @@ import (
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
 	"github.com/brentp/lumpy-smoother/shared"
+	"github.com/brentp/lumpy-smoother/svtyper"
 	"github.com/brentp/xopen"
 )
 
@@ -204,6 +205,12 @@ func Main() {
 	}
 	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, wtr, nil, cli.Exclude, filter_chroms)
 	p.Stderr = shared.Slogger
-	p.Stdout = os.Stdout
-	check(p.Run())
+	if cli.Svtyper {
+		wtr := bufio.NewWriter(os.Stdout)
+		defer wtr.Flush()
+		svtyper.Svtyper(nil, wtr, cli.Fasta, cli.Bams, p)
+	} else {
+		p.Stdout = os.Stdout
+		check(p.Run())
+	}
 }
