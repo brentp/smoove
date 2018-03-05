@@ -90,7 +90,6 @@ func Cnvnator(bam string, name string, fasta string, outDir string, bin int, exc
 	check(ft.Close())
 	time.Sleep(100 * time.Millisecond)
 	p := exec.Command("bash " + ft.Name())
-	// TODO: convert to del/dup.bedpe
 	if err := p.Run(); err != nil {
 		return err
 	}
@@ -285,7 +284,10 @@ type cliargs struct {
 
 func Main() {
 	cli := cliargs{OutDir: "", ExcludeChroms: "hs37d5,~:,~^GL,~decoy"}
-	arg.MustParse(&cli)
+	p := arg.MustParse(&cli)
+	if _, err := exec.LookPath("cnvnator"); err != nil {
+		p.Fail("cnvnator not found in path")
+	}
 	if err := Cnvnator(cli.Bam, cli.Name, cli.Fasta, cli.OutDir, 500, cli.ExcludeChroms); err != nil {
 		log.Fatal(err)
 	}

@@ -16,7 +16,7 @@ type Logger struct {
 	*log.Logger
 }
 
-const Prefix = "[lumpy-smoother]"
+const Prefix = "[smoove]"
 
 func (l *Logger) Write(b []byte) (int, error) {
 	l.Logger.Printf(string(b))
@@ -26,7 +26,7 @@ func (l *Logger) Write(b []byte) (int, error) {
 var Slogger *Logger
 
 func init() {
-	l := log.New(os.Stderr, "[lumpy-smoother] ", log.Ldate|log.Ltime)
+	l := log.New(os.Stderr, Prefix+" ", log.Ldate|log.Ltime)
 	Slogger = &Logger{Logger: l}
 }
 

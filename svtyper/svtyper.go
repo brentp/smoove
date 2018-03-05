@@ -137,7 +137,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 					continue
 				}
 				// already printed header...
-				// so skip passed it.
+				// so skip past it.
 				for {
 					line, err := rdr.ReadString('\n')
 					if len(line) != 0 {
@@ -163,10 +163,12 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 
 func Main() {
 	cli := cliargs{VCF: "-", Processes: 3}
-	arg.MustParse(&cli)
+	p := arg.MustParse(&cli)
+	if _, err := exec.LookPath("svtyper"); err != nil {
+		p.Fail(shared.Prefix + " svtyper not found on PATH")
+	}
 	rdr, err := xopen.Ropen(cli.VCF)
 	check(err)
 	wtr := bufio.NewWriter(os.Stdout)
-	//func Svtyper(vcf io.Reader, outvcf io.Writer, reference, exclude, bam_paths []string) {
 	Svtyper(rdr, wtr, cli.Fasta, cli.Bams)
 }

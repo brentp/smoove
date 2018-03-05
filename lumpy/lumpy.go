@@ -28,9 +28,14 @@ type cliargs struct {
 	Fasta         string   `arg:"-f,required,help:fasta file."`
 	Exclude       string   `arg:"-e,help:BED of exclude regions."`
 	ExcludeChroms string   `arg:"-C,help:ignore SVs with either end in this comma-delimited list of chroms. If this starts with ~ it is treated as a regular expression to exclude."`
-	Processes     int      `arg:"-p,number of processors to parallelize."`
+	Processes     int      `arg:"-p,help:number of processors to parallelize."`
 	OutDir        string   `arg:"-o,help:output directory."`
-	Bams          []string `arg:"positional,required,help:path to bam to call."`
+	Svtyper       bool     `arg:"-s,help:run svtyper directly on output"`
+	Bams          []string `arg:"positional,required,help:path to bam(s) to call."`
+}
+
+func (c cliargs) Description() string {
+	return "this runs lumpy ands sends output to STDOUT"
 }
 
 func check(e error) {
@@ -114,7 +119,7 @@ func run_lumpy(bams []filter, fa string, outdir string, has_cnvnator bool, name 
 	}
 
 	lumpy_tmpl := "set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 -P "
-	pe_tmpl := "-pe id:{{.Sample}},bam_file:{{.DiscPath}},histo_file:{{.HistPath}},mean:{{.Mean}},stdev:{{.Std}},read_length:{{.ReadLength}},min_non_overlap:{{.ReadLength}},discordant_z:4,         back_distance:30,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
+	pe_tmpl := "-pe id:{{.Sample}},bam_file:{{.DiscPath}},histo_file:{{.HistPath}},mean:{{.Mean}},stdev:{{.Std}},read_length:{{.ReadLength}},min_non_overlap:{{.ReadLength}},discordant_z:4,back_distance:30,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
 	sr_tmpl := "-sr id:{{.Sample}},bam_file:{{.SplitPath}},back_distance:10,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
 
 	del_tmpl := "-bedpe bedpe_file:%s/%s.del.bedpe,id:%s,weight:2 "
@@ -186,11 +191,17 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 }
 
 func Main() {
+	if _, err := exec.LookPath("lumpy"); err != nil {
+		shared.Slogger.Fatal("lumpy executable not found in PATH")
+	}
 	cli := cliargs{Processes: 3, ExcludeChroms: "hs37d5,~:,~^GL,~decoy"}
 	arg.MustParse(&cli)
 	runtime.GOMAXPROCS(cli.Processes)
 	wtr := bufio.NewWriter(os.Stdout)
 	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
+	if cli.OutDir == "" {
+		cli.OutDir = "./"
+	}
 	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, wtr, nil, cli.Exclude, filter_chroms)
 	p.Stderr = shared.Slogger
 	p.Stdout = os.Stdout
