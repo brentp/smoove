@@ -191,6 +191,48 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 	shared.Slogger.Print("done calculating bam stats\n")
 }
 
+func bndFilter(in io.Reader, bndSupport int) io.Reader {
+	r, w := io.Pipe()
+	b := bufio.NewReader(in)
+	wb := bufio.NewWriter(w)
+	go func() {
+		defer w.Close()
+		defer wb.Flush()
+		for {
+			line, err := b.ReadString('\n')
+			if len(line) > 0 {
+				if line[0] == '#' {
+					wb.WriteString(line)
+					continue
+				}
+				// only filter out BNDs with < X pieces of evidence when we're streaming directly from lumpy.
+				if strings.Contains(line, "SVTYPE=BND") {
+					toks := strings.SplitN(line, "\t", 10)
+					// BND elements have different filtering set by command-line.
+					idx0 := strings.Index(toks[7], ";SU=") + 4
+					if idx0 != 3 {
+						idx1 := idx0 + strings.Index(toks[7][idx0:], ";")
+						vstr := toks[7][idx0:idx1]
+						v, err := strconv.Atoi(vstr)
+						if err == nil && v < bndSupport {
+							continue
+						}
+					}
+				}
+				wb.WriteString(line)
+			}
+			if err == io.EOF {
+				break
+			}
+			check(err)
+		}
+
+	}()
+	return r
+}
+
+const BndSupport = 6
+
 func Main() {
 	if _, err := exec.LookPath("lumpy"); err != nil {
 		shared.Slogger.Fatal("lumpy executable not found in PATH")
@@ -199,18 +241,26 @@ func Main() {
 	arg.MustParse(&cli)
 	runtime.GOMAXPROCS(cli.Processes)
 	wtr := bufio.NewWriter(os.Stdout)
+	defer wtr.Flush()
 	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
 	if cli.OutDir == "" {
 		cli.OutDir = "./"
 	}
 	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, wtr, nil, cli.Exclude, filter_chroms)
 	p.Stderr = shared.Slogger
-	if cli.Svtyper {
-		wtr := bufio.NewWriter(os.Stdout)
-		defer wtr.Flush()
-		svtyper.Svtyper(nil, wtr, cli.Fasta, cli.Bams, p)
-	} else {
-		p.Stdout = os.Stdout
-		check(p.Run())
+	var err error
+	ivcf, err := p.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
 	}
+	p.Start()
+
+	vcf := bndFilter(ivcf, BndSupport)
+
+	if cli.Svtyper {
+		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams)
+	} else {
+		io.Copy(wtr, vcf)
+	}
+	p.Wait()
 }

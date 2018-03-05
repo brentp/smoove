@@ -4,11 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -59,20 +57,7 @@ func writeTmp(header []string, lines []string) string {
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
 // p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
-func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string, p *exec.Cmd) {
-
-	if p != nil {
-		if vcf != nil {
-			log.Fatal("got non-nil VCF to Svtyper *and* a process expecting only one.")
-		}
-		var err error
-		vcf, err = p.StdoutPipe()
-		if err != nil {
-			log.Fatal(err)
-		}
-		p.Start()
-	}
-
+func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string) {
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
@@ -93,19 +78,6 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 					continue
 				}
 				toks := strings.SplitN(line, "\t", 10)[:8]
-				// only filter out BNDs with < X pieces of evidence when we're streaming directly from lumpy.
-				if p != nil && strings.Contains(toks[7], "SVTYPE=BND") {
-					// BND elements have different filtering set by command-line.
-					idx0 := strings.Index(toks[7], ";SU=") + 4
-					if idx0 != 3 {
-						idx1 := idx0 + strings.Index(toks[7][idx0:], ";")
-						vstr := toks[7][idx0:idx1]
-						v, err := strconv.Atoi(vstr)
-						if err == nil && v < BndSupport {
-							continue
-						}
-					}
-				}
 				line = strings.TrimSpace(strings.Join(toks, "\t")) + "\n"
 				lines = append(lines, line)
 				if len(lines) < chunkSize || (len(lines) == chunkSize && isFirstBnd(line)) {
@@ -196,9 +168,6 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		}()
 	}
 	wg.Wait()
-	if p != nil {
-		check(p.Wait())
-	}
 }
 
 const BndSupport = 6
@@ -214,5 +183,5 @@ func Main() {
 	wtr := bufio.NewWriter(os.Stdout)
 	defer wtr.Flush()
 	defer rdr.Close()
-	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, nil)
+	Svtyper(rdr, wtr, cli.Fasta, cli.Bams)
 }
