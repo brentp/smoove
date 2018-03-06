@@ -19,7 +19,7 @@ import (
 	"github.com/biogo/biogo/io/seqio/fai"
 	"github.com/brentp/faidx"
 	"github.com/brentp/go-athenaeum/tempclean"
-	"github.com/brentp/lumpy-smoother/shared"
+	"github.com/brentp/smoove/shared"
 	"github.com/brentp/xopen"
 	"github.com/pkg/errors"
 )

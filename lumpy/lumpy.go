@@ -19,8 +19,8 @@ import (
 	"github.com/brentp/go-athenaeum/shpool"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
-	"github.com/brentp/lumpy-smoother/shared"
-	"github.com/brentp/lumpy-smoother/svtyper"
+	"github.com/brentp/smoove/shared"
+	"github.com/brentp/smoove/svtyper"
 	"github.com/brentp/xopen"
 )
 
@@ -32,7 +32,7 @@ type cliargs struct {
 	Processes      int      `arg:"-p,help:number of processors to parallelize."`
 	OutDir         string   `arg:"-o,help:output directory."`
 	NoExtraFilters bool     `arg:"-F,help:use lumpy_filter only without extra smoove filters."`
-	Svtyper        bool     `arg:"-s,help:run svtyper directly on output"`
+	Genotype       bool     `arg:"-s,help:stream output to svtyper for genotyping"`
 	Bams           []string `arg:"positional,required,help:path to bam(s) to call."`
 }
 
@@ -70,7 +70,7 @@ func (fi filter) write_hist(outdir string) {
 
 func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 	// check if .split.bam and .disc.bam exist. if they do, then use.
-	sm, err := indexcov.GetShortName(bam, strings.HasSuffix(bam, ".bam"))
+	sm, err := indexcov.GetShortName(bam, strings.HasSuffix(bam, ".cram"))
 	check(err)
 	prefix := fmt.Sprintf("%s/%s", outdir, sm)
 
@@ -259,7 +259,7 @@ func Main() {
 
 	vcf := bndFilter(ivcf, BndSupport)
 
-	if cli.Svtyper {
+	if cli.Genotype {
 		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true)
 	} else {
 		io.Copy(wtr, vcf)

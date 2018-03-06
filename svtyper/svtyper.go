@@ -13,7 +13,7 @@ import (
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/brentp/go-athenaeum/tempclean"
-	"github.com/brentp/lumpy-smoother/shared"
+	"github.com/brentp/smoove/shared"
 	"github.com/brentp/xopen"
 )
 
@@ -107,7 +107,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 	var out *bufio.Writer = bufio.NewWriter(outvcf)
 
 	if shared.HasProg("gsort") == "Y" && shared.HasProg("bcftools") == "Y" {
-		o := filepath.Join(outdir, name) + "." + "svtyped.vcf.gz"
+		o := filepath.Join(outdir, name) + "." + "genotyped.vcf.gz"
 		shared.Slogger.Printf("writing sorted, indexed file to %s", o)
 		exRef := ""
 		if excludeNonRef {

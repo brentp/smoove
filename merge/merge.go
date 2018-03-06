@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	arg "github.com/alexflint/go-arg"
-	"github.com/brentp/lumpy-smoother/shared"
+	"github.com/brentp/smoove/shared"
 	"github.com/brentp/xopen"
 )
 

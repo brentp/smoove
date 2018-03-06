@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +18,7 @@ import (
 	"github.com/biogo/hts/sam"
 	"github.com/biogo/store/interval"
 	"github.com/brentp/goleft/depth"
-	"github.com/brentp/lumpy-smoother/shared"
+	"github.com/brentp/smoove/shared"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -167,8 +166,7 @@ func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, fi
 	var t map[string]*interval.IntTree
 
 	//if _, err := exec.LookPath("mosdepth"); err == nil {
-	log.Println("removed mosdepth for debugging")
-	if _, err := exec.LookPath("mosdepth"); err != nil && extraFilters {
+	if _, err := exec.LookPath("mosdepth"); err == nil && extraFilters {
 
 		f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
 		check(err)
