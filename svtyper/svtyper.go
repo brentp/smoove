@@ -20,6 +20,7 @@ import (
 type cliargs struct {
 	Name      string   `arg:"-n,required,help:project name used in output files."`
 	OutDir    string   `arg:"-o,help:output directory."`
+	Stdout    bool     `arg:"-s,help:output to STDOUT as well as to the sorted file to outdir/name"`
 	Fasta     string   `arg:"-f,required,help:fasta file."`
 	Processes int      `arg:"-p,help:number of processors to use."`
 	VCF       string   `arg:"-v,required,help:vcf to genotype (use - for stdin)."`
@@ -39,7 +40,7 @@ func isFirstBnd(line string) bool {
 	if !strings.Contains(line, "SVTYPE=BND") {
 		return false
 	}
-	toks := strings.Split(line, "\t")
+	toks := strings.SplitN(line, "\t", 5)
 	return strings.HasSuffix(toks[2], "_1")
 }
 
@@ -118,7 +119,11 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		var err error
 		si, err = psort.StdinPipe()
 		check(err)
-		out = bufio.NewWriter(io.MultiWriter(outvcf, si))
+		if outvcf != nil {
+			out = bufio.NewWriter(io.MultiWriter(outvcf, si))
+		} else {
+			out = bufio.NewWriter(si)
+		}
 		check(psort.Start())
 	}
 	var mu sync.Mutex
@@ -158,6 +163,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 				if !headerPrinted {
 					_, err = io.Copy(out, rdr)
 					headerPrinted = true
+					out.Flush()
 					mu.Unlock()
 					continue
 				}
@@ -178,6 +184,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 					}
 					check(err)
 				}
+				out.Flush()
 				mu.Unlock()
 			}
 			check(out.Flush())
@@ -201,8 +208,11 @@ func Main() {
 	}
 	rdr, err := xopen.Ropen(cli.VCF)
 	check(err)
-	wtr := bufio.NewWriter(os.Stdout)
-	defer wtr.Flush()
+	var wtr io.Writer
+	if cli.Stdout {
+		wtr = bufio.NewWriter(os.Stdout)
+		defer wtr.(*bufio.Writer).Flush()
+	}
 	defer rdr.Close()
 	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false)
 }

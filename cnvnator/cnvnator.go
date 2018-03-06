@@ -122,7 +122,8 @@ func cnvFromLine(line string, i int) cnv {
 	check(err)
 	stop, err := strconv.Atoi(se[1])
 
-	q0 := strconv.ParseFloat(toks[len(toks)-1], 64)
+	q0, err := strconv.ParseFloat(toks[len(toks)-1], 64)
+	check(err)
 	return cnv{chrom: chrom_interval[0], start: start, end: stop, i: i, event: toks[0], q0: q0}
 }
 

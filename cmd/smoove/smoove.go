@@ -11,6 +11,7 @@ import (
 	"github.com/brentp/smoove/cnvnator"
 	"github.com/brentp/smoove/lumpy"
 	"github.com/brentp/smoove/merge"
+	"github.com/brentp/smoove/paste"
 	"github.com/brentp/smoove/shared"
 	"github.com/brentp/smoove/svtyper"
 	"github.com/valyala/fasttemplate"
@@ -26,6 +27,7 @@ var progs = map[string]progPair{
 	"genotype": progPair{"parallelize svtyper on an input VCF", svtyper.Main},
 	"call":     progPair{"call lumpy (and optionally svtyper) after filtering bams", lumpy.Main},
 	"merge":    progPair{"merge and sort (using svtools) calls from multiple samples", merge.Main},
+	"paste":    progPair{"square final calls from multiple samples (each with same number of variants)", paste.Main},
 }
 
 func Description() string {
