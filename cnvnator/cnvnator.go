@@ -111,6 +111,7 @@ type cnv struct {
 	end   int
 	i     int
 	event string
+	q0    float64
 }
 
 func cnvFromLine(line string, i int) cnv {
@@ -120,7 +121,9 @@ func cnvFromLine(line string, i int) cnv {
 	start, err := strconv.Atoi(se[0])
 	check(err)
 	stop, err := strconv.Atoi(se[1])
-	return cnv{chrom: chrom_interval[0], start: start, end: stop, i: i, event: toks[0]}
+
+	q0 := strconv.ParseFloat(toks[len(toks)-1], 64)
+	return cnv{chrom: chrom_interval[0], start: start, end: stop, i: i, event: toks[0], q0: q0}
 }
 
 func (c cnv) String(breakHalf int) string {
@@ -194,6 +197,10 @@ func cnvnatorToBedPe(sample, outdir string, fasta string) {
 		check(err)
 
 		c := cnvFromLine(line, i)
+		// filter on proportion of mapq 0 reads.
+		if c.q0 < 0 || c.q0 > 0.5 {
+			continue
+		}
 		if c.event == "duplication" {
 			dups = append(dups, c)
 		} else if c.event == "deletion" {

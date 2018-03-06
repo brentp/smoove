@@ -23,6 +23,7 @@ func Main() {
 
 	cli := cliargs{OutDir: "./"}
 	arg.MustParse(&cli)
+	shared.Slogger.Printf("merging %d files", len(cli.VCFs))
 
 	f, err := xopen.Wopen(filepath.Join(cli.OutDir, cli.Name) + ".lsort.vcf")
 	if err != nil {
