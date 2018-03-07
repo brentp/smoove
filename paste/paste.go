@@ -101,13 +101,13 @@ func Main() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(len(cli.VCFs))
-	procs := 3
+	procs := 5
 
 	go count(wg, procs, cli.VCFs)
 
 	outvcf := fmt.Sprintf(filepath.Join(cli.OutDir, cli.Name) + ".smoove.square.vcf.gz")
 	shared.Slogger.Printf("squaring %d files to %s", len(cli.VCFs), outvcf)
-	args := []string{"merge", "-o", outvcf, "-O", "z", "--threads", "2"}
+	args := []string{"merge", "-o", outvcf, "-O", "z", "--threads", "3"}
 	args = append(args, cli.VCFs...)
 
 	p := exec.Command("bcftools", args...)

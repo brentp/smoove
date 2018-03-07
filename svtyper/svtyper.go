@@ -33,7 +33,13 @@ func check(e error) {
 	}
 }
 
-const chunkSize = 300
+func checkWrite(i int, e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+const chunkSize = 600
 
 // cant orphan BNDs or svtyper won't genotype.
 func isFirstBnd(line string) bool {
@@ -48,11 +54,10 @@ func writeTmp(header []string, lines []string) string {
 	f, err := xopen.Wopen("tmp:lumpy-smoother-tmp")
 	check(err)
 	for _, h := range header {
-		f.WriteString(h)
+		checkWrite(f.WriteString(h))
 	}
 	for _, l := range lines {
-		_, err := f.WriteString(l)
-		check(err)
+		checkWrite(f.WriteString(l))
 	}
 	f.Close()
 	return f.Name()
@@ -112,6 +117,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		shared.Slogger.Printf("writing sorted, indexed file to %s", o)
 		exRef := ""
 		if excludeNonRef {
+			shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
 			exRef = " -c 1"
 		}
 		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
@@ -156,6 +162,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 				p.Stderr = shared.Slogger
 				p.Stdout = shared.Slogger
 				check(p.Run())
+				// TODO: add check here to make sure n output variants is same as n input variants
 				f = t.Name()
 				rdr, err := xopen.Ropen(f)
 				check(err)
@@ -175,8 +182,9 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 						if line[0] == '#' {
 							continue
 						}
-						out.WriteString(line)
-						io.Copy(out, rdr)
+						checkWrite(out.WriteString(line))
+						_, err := io.Copy(out, rdr)
+						check(err)
 						break
 					}
 					if err == io.EOF {
@@ -184,14 +192,17 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 					}
 					check(err)
 				}
-				out.Flush()
+				check(out.Flush())
 				mu.Unlock()
+				os.Remove(t.Name())
+				os.Remove(f)
 			}
 			check(out.Flush())
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+	out.Flush()
 	if psort != nil {
 		check(si.Close())
 		check(psort.Wait())
