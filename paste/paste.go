@@ -103,7 +103,7 @@ func Main() {
 	wg.Add(len(cli.VCFs))
 	procs := 3
 
-	count(wg, procs, cli.VCFs)
+	go count(wg, procs, cli.VCFs)
 
 	outvcf := fmt.Sprintf(filepath.Join(cli.OutDir, cli.Name) + ".smoove.square.vcf.gz")
 	shared.Slogger.Printf("squaring %d files to %s", len(cli.VCFs), outvcf)

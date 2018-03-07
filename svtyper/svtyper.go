@@ -214,5 +214,6 @@ func Main() {
 		defer wtr.(*bufio.Writer).Flush()
 	}
 	defer rdr.Close()
+	runtime.GOMAXPROCS(cli.Processes)
 	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false)
 }
