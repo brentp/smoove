@@ -4,7 +4,9 @@ set -euo pipefail
 basedir=$(pwd)
 
 cp ./lumpy-smoother /usr/local/bin
+cp ./smoove /usr/local/bin
 chmod +x /usr/local/bin/lumpy-smoother
+chmod +x /usr/local/bin/smoove
 
 # used by Dockerfile
 apt-get update
@@ -35,7 +37,7 @@ cd $basedir
 wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.1/batchit
 chmod +x /usr/bin/batchit
 
-pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2
+pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip
 
 git clone https://github.com/hall-lab/svtyper
 cd svtyper && python setup.py install

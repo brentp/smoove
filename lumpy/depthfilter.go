@@ -1,4 +1,4 @@
-package main
+package lumpy
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -17,7 +16,9 @@ import (
 
 	"github.com/biogo/hts/bam"
 	"github.com/biogo/hts/sam"
+	"github.com/biogo/store/interval"
 	"github.com/brentp/goleft/depth"
+	"github.com/brentp/smoove/shared"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -159,14 +160,19 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
-func remove_high_depth(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
+func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) {
 	t0 := time.Now()
 
-	f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
-	check(err)
-	defer f.Close()
-	defer os.Remove(f.Name())
-	cmd := `
+	var t map[string]*interval.IntTree
+
+	//if _, err := exec.LookPath("mosdepth"); err == nil {
+	if _, err := exec.LookPath("mosdepth"); err == nil && extraFilters {
+
+		f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
+		check(err)
+		defer f.Close()
+		defer os.Remove(f.Name())
+		cmd := `
 export MOSDEPTH_Q0=OK
 export MOSDEPTH Q1=HIGH
 set -euo pipefail
@@ -175,23 +181,26 @@ mosdepth -f {{fasta}} -n --quantize {{md1}}: {{prefix}} {{bam}}
 rm {{prefix}}.mosdepth.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
 `
-	vars := map[string]interface{}{
-		"md1":    strconv.Itoa(maxdepth + 1),
-		"prefix": f.Name(),
-		"bam":    fbam,
-		"fasta":  fasta,
+		vars := map[string]interface{}{
+			"md1":    strconv.Itoa(maxdepth + 1),
+			"prefix": f.Name(),
+			"bam":    fbam,
+			"fasta":  fasta,
+		}
+
+		c := fasttemplate.New(cmd, "{{", "}}")
+		s := c.ExecuteString(vars)
+		p := exec.Command("bash", "-c", s)
+		p.Stderr = os.Stderr
+		p.Stdout = os.Stderr
+		check(p.Run())
+		defer os.Remove(f.Name() + ".quantized.bed.gz")
+		defer os.Remove(fbam + ".bai")
+
+		t = depth.ReadTree(f.Name()+".quantized.bed.gz", fexclude)
+	} else {
+		t = depth.ReadTree(fexclude)
 	}
-
-	c := fasttemplate.New(cmd, "{{", "}}")
-	s := c.ExecuteString(vars)
-	p := exec.Command("bash", "-c", s)
-	p.Stderr = os.Stderr
-	p.Stdout = os.Stderr
-	check(p.Run())
-	defer os.Remove(f.Name() + ".quantized.bed.gz")
-	defer os.Remove(fbam + ".bai")
-
-	t := depth.ReadTree(f.Name()+".quantized.bed.gz", fexclude)
 
 	fbr, err := os.Open(fbam)
 	check(err)
@@ -217,6 +226,18 @@ rm {{prefix}}.quantized.bed.gz.csi
 				removed++
 				continue
 			}
+
+			// remove it chrom is found and it overlaps a high-coverage region.
+			if tt, ok := t[rec.Ref.Name()]; ok {
+				if depth.Overlaps(tt, rec.Start(), rec.End()) {
+					removed++
+					continue
+				}
+			}
+			if !extraFilters {
+				check(bw.Write(rec))
+				continue
+			}
 			if sketchyInterchromosomalOrSplit(rec) {
 				badInter++
 				continue
@@ -235,7 +256,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 				// new chrom
 				last = rchrom
 				// if it's in the filtered...
-				if contains(filter_chroms, last) {
+				if shared.Contains(filter_chroms, last) {
 					// then skip and set rmLast
 
 					removed++
@@ -246,17 +267,9 @@ rm {{prefix}}.quantized.bed.gz.csi
 				}
 			}
 			// END block to check if it's in filter chroms
-
-			// remove it chrom is found and it overlaps a high-coverage region.
-			if tt, ok := t[rec.Ref.Name()]; ok {
-				if depth.Overlaps(tt, rec.Start(), rec.End()) {
-					removed++
-					continue
-				}
-			}
 			// if we made it here, we know the chrom is OK.
 			// so check if mate is from a different chromosome and exclude if mate from filtered chroms
-			if rec.MateRef.ID() != rec.Ref.ID() && contains(filter_chroms, rec.MateRef.Name()) {
+			if rec.MateRef.ID() != rec.Ref.ID() && shared.Contains(filter_chroms, rec.MateRef.Name()) {
 				removed++
 				continue
 			}
@@ -281,10 +294,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 	}
 
 	pct := float64(removed) / float64(tot) * 100
-	logger.Printf("removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
+	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
 	pct = float64(badInter) / float64(tot) * 100
-	logger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
+	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
 		badInter, tot, pct, filepath.Base(fbam))
 	//if !strings.HasSuffix(fbam, ".split.bam") {
 	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"))
@@ -292,25 +305,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 
 }
 
-func contains(haystack []string, needle string) bool {
-	for _, h := range haystack {
-		if h[0] != '~' && h == needle {
-			return true
-		}
-		if h[0] == '~' {
-			if match, _ := regexp.MatchString(h[1:], needle); match {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func remove_high_depths(bams []filtered, maxdepth int, fasta string, fexclude string, filter_chroms []string) {
+func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
-		logger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
-		return
+		shared.Slogger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
 	}
 
 	pch := make(chan []string, runtime.GOMAXPROCS(0))
@@ -320,19 +318,12 @@ func remove_high_depths(bams []filtered, maxdepth int, fasta string, fexclude st
 		wg.Add(1)
 		go func() {
 			for pair := range pch {
-				remove_high_depth(pair[0], maxdepth, fasta, fexclude, filter_chroms)
-				remove_high_depth(pair[1], maxdepth, fasta, fexclude, filter_chroms)
+				remove_sketchy(pair[0], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
+				remove_sketchy(pair[1], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
 				proc := exec.Command("bash", "-c", fmt.Sprintf("samtools index %s && samtools index %s", pair[0], pair[1]))
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())
-				/*
-					newbams := evidencewindow.EvidenceRemoval(&evidencewindow.Args{Window: 1500, Evidence: 2, Bams: pair})
-					check(os.Rename(newbams[0], pair[0]))
-					check(os.Rename(newbams[1], pair[1]))
-					os.Remove(pair[0] + ".bai")
-					os.Remove(pair[1] + ".bai")
-				*/
 			}
 			wg.Done()
 		}()
@@ -430,5 +421,5 @@ func singletonfilter(fbam string, split bool) {
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)
-	logger.Printf("removed %d singletons out of %d reads (%.2f%%) from %s", removed, tot, pct, filepath.Base(f.Name()))
+	shared.Slogger.Printf("removed %d singletons out of %d reads (%.2f%%) from %s", removed, tot, pct, filepath.Base(f.Name()))
 }

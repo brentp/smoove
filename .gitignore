@@ -1,4 +1,10 @@
 *.fa
+*.bai
+*.crai
+*.bam
+*.vcf.gz
+*.tbi
+*.csi
 *.vcf
 *.bedpe
 *.bam
