@@ -36,7 +36,7 @@ I will release a binary shortly, meanwhile, you can get this and all dependencie
 
 ```
 docker pull brentp/smoove
-docker run -it brentp/smoove -h
+docker run -it brentp/smoove smoove -h
 ```
 
 # usage
