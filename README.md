@@ -49,8 +49,10 @@ Or, you can download a `smoove` binary from here: https://github.com/brentp/smoo
 for small cohorts it's possible to get a jointly-called, genotyped VCF in a **single command**.
 
 ```
-smoove call --name my-cohort --fasta $fasta -p $threads --genotype /path/to/*.bam > /dev/null
+smoove call --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotype /path/to/*.bam > /dev/null
 ```
+
+the `$exclude` is optional but can be used to remove problematic regions.
 
 ## large cohorts
 
