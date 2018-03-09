@@ -73,6 +73,7 @@ func interOrDistant(r *sam.Record) bool {
 // 2. splitters where both end ops are soft-clips. e.g. discard 20S106M34S, but keep 87S123M
 // 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
 // 4. an interchromosomal with NM tag and NM > 3 is skipped.
+// 5. any read where both ends are soft clips of > 5 bases are skipped.
 // NOTE: "interchromosomal" here includes same chrom with end > 10MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	if interOrDistant(r) {
