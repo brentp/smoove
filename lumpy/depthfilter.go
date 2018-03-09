@@ -169,7 +169,7 @@ func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, fi
 	//if _, err := exec.LookPath("mosdepth"); err == nil {
 	if _, err := exec.LookPath("mosdepth"); err == nil && extraFilters {
 
-		f, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-")
+		f, err := ioutil.TempFile("", "smoove-mosdepth-")
 		check(err)
 		defer f.Close()
 		defer os.Remove(f.Name())
@@ -208,7 +208,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	br, err := bam.NewReader(fbr, 1)
 	check(err)
 
-	fbw, err := ioutil.TempFile("", "lumpy-smoother-mosdepth-bam")
+	fbw, err := ioutil.TempFile("", "smoove-mosdepth-bam")
 	check(err)
 	bw, err := bam.NewWriterLevel(fbw, br.Header(), 1, 1)
 

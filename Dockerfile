@@ -6,5 +6,3 @@ COPY smoove .
 RUN bash docker-build.sh
 
 WORKDIR /work/
-
-#ENTRYPOINT ["lumpy-smoother"]

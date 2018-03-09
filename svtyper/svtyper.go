@@ -51,7 +51,7 @@ func isFirstBnd(line string) bool {
 }
 
 func writeTmp(header []string, lines []string) string {
-	f, err := xopen.Wopen("tmp:lumpy-smoother-tmp")
+	f, err := xopen.Wopen("tmp:smoove-tmp")
 	check(err)
 	for _, h := range header {
 		checkWrite(f.WriteString(h))
@@ -155,7 +155,7 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 		go func() {
 			for tmpf := range ch {
 				f := tmpf
-				t, err := tempclean.TempFile("", "lumpy-smoother-svtyper-tmp-")
+				t, err := tempclean.TempFile("", "smoove-svtyper-tmp-")
 				check(err)
 				t.Close()
 				p := exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "1000", "-T", reference, "-l", lib, "-o", t.Name())

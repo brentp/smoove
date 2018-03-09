@@ -3,6 +3,9 @@
 `smoove` simplifies and speeds calling and genotyping SVs. It also improves specificity by removing many
 spurious alignment signals that are indicative of low-level noise and often contribute to spurious calls.
 
+It both supports small cohorts in a single command, and population-level calling with 4 total steps, 2
+of which are parallel by sample.
+
 It requires:
 
  + [lumpy and lumpy\_filter](https://github.com/arq5x/lumpy-sv)
@@ -27,9 +30,8 @@ It requires:
    after this, it will remove singleton reads (where the mate was removed by one of the previous filters) from the discordant
    bams. This makes `lumpy` much faster and less memory-hungry.
 3. calculate per-sample metrics for mean, standard deviation, and distribution of insert size as required by lumpy.
-4. correct the reference allele (lumpy always puts 'N')
-5. stream output of lumpy directly into multiple svtyper processes for parallel-by-region genotyping while lumpy is still running.
-6. sort, compress, and index final VCF.
+4. stream output of lumpy directly into multiple svtyper processes for parallel-by-region genotyping while lumpy is still running.
+5. sort, compress, and index final VCF.
 
 # installation
 
@@ -54,9 +56,9 @@ smoove call --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotyp
 
 the `$exclude` is optional but can be used to remove problematic regions.
 
-## large cohorts
+## population calling
 
-For large cohorts the steps are:
+For population-level calling (large cohorts) the steps are:
 
 1. For each sample, call genotypes:
 
