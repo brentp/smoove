@@ -32,18 +32,20 @@ It requires:
 
 # installation
 
-I will release a binary shortly, meanwhile, you can get this and all dependencies via (a large) docker image:
+you can get `smoove` and all dependencies via (a large) docker image:
 
 ```
 docker pull brentp/smoove
 docker run -it brentp/smoove smoove -h
 ```
 
+Or, you can download a `smoove` binary from here: https://github.com/brentp/smoove/releases
+
 # usage
 
 ## small cohorts (n < ~ 40)
 
-for small cohorts it's possible to get a jointly-called, genotyped VCF in a single command.
+for small cohorts it's possible to get a jointly-called, genotyped VCF in a **single command**.
 
 ```
 smoove call --name my-cohort --fasta $fasta -p $threads --genotype /path/to/*.bam > /dev/null
