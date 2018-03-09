@@ -14,7 +14,8 @@ It requires:
  + [samtools](https://github.com/samtools/samtools): for CRAM support
  + [gsort](https://github.com/brentp/gsort): to sort final VCF
  + [bgzip+tabix](https://github.com/samtools/htslib): to compress and index final VCF
- + [mosdepth](https://github.com/brentp/mosdepth)
+ + [mosdepth](https://github.com/brentp/mosdepth): remove high coverage regions.
+ + [bcftools](https://github.com/samtools/bcftools): VCF indexing and filtering
 
  Running `smoove` without any arguments will show which of these are found so they can be added to the PATH as needed.
 
@@ -61,14 +62,14 @@ For large cohorts the steps are:
 smoove call --outdir results-smoove/ --name $sample --fasta $fasta -p $threads --genotype /path/to/$sample.bam > /dev/null
 ```
 
-2. Get the union of sites across all samples:
+2. Get the union of sites across all samples (this can parallelize this across as many CPUs or machines as needed):
 
 ```
 # this will create ./merged.sites.vcf.gz
 smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.vcf.gz
 ```
 
-3. genotype all samples at those sites.
+3. genotype all samples at those sites (this can parallelize this across as many CPUs or machines as needed).
 
 ```
 smoove genotype -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
