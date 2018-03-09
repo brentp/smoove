@@ -84,6 +84,8 @@ smoove paste --name $cohort results-genotyped/*.vcf.gz
 # TODO
 
 + [ ] annotate high-quality calls
++ [ ] incorporate WHAM
++ [ ] incorporate cnvnator (this is already a sub-command, but there's no way to use the output)
 
 # see also
 
