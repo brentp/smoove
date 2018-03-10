@@ -1,6 +1,6 @@
 # smoove
 
-`smoove` simplifies and speeds calling and genotyping SVs. It also improves specificity by removing many
+`smoove` simplifies and speeds calling and genotyping SVs for short reads. It also improves specificity by removing many
 spurious alignment signals that are indicative of low-level noise and often contribute to spurious calls.
 
 It both supports small cohorts in a single command, and population-level calling with 4 total steps, 2
