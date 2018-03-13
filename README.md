@@ -18,7 +18,7 @@ It requires:
  + [gsort](https://github.com/brentp/gsort): to sort final VCF
  + [bgzip+tabix](https://github.com/samtools/htslib): to compress and index final VCF
  + [mosdepth](https://github.com/brentp/mosdepth): remove high coverage regions.
- + [bcftools](https://github.com/samtools/bcftools): VCF indexing and filtering
+ + [bcftools](https://github.com/samtools/bcftools): version 1.5 or higher for VCF indexing and filtering. 
 
  Running `smoove` without any arguments will show which of these are found so they can be added to the PATH as needed.
 
@@ -84,6 +84,10 @@ smoove genotype -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fa
 ```
 smoove paste --name $cohort results-genotyped/*.vcf.gz
 ```
+
+# Troubleshooting
+
++ A panic with a message like ` Segmentation fault      (core dumped) | bcftools view -O z -c 1 -o` is likely to mean you have an old version of bcftools [see](#10)
 
 # TODO
 
