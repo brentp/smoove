@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	arg "github.com/alexflint/go-arg"
+	"github.com/biogo/hts/bgzf"
 	"github.com/brentp/go-athenaeum/shpool"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
@@ -37,7 +38,7 @@ type cliargs struct {
 }
 
 func (c cliargs) Description() string {
-	return "this runs lumpy ands sends output to STDOUT"
+	return "this runs lumpy ands sends output to {outdir}/{name}-smoove.vcf.gz if --genotype is requested, the output goes to {outdir}/{name}-smoove.genotyped.vcf.gz"
 }
 
 func check(e error) {
@@ -92,7 +93,7 @@ func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 	return f
 }
 
-func Lumpy(project, reference string, outdir string, bam_paths []string, out io.Writer, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool) *exec.Cmd {
+func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool) *exec.Cmd {
 	if pool == nil {
 		pool = shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: shared.Prefix})
 	}
@@ -117,7 +118,7 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, out io.
 
 func run_lumpy(bams []filter, fa string, outdir string, has_cnvnator bool, name string) *exec.Cmd {
 	if _, err := exec.LookPath("lumpy"); err != nil {
-		log.Fatal(shared.Prefix + " lumpy not found on path")
+		shared.Slogger.Fatal("lumpy not found on path")
 	}
 
 	lumpy_tmpl := "set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 -P "
@@ -242,13 +243,11 @@ func Main() {
 	cli := cliargs{Processes: 3, ExcludeChroms: "hs37d5,~:,~^GL,~decoy"}
 	arg.MustParse(&cli)
 	runtime.GOMAXPROCS(cli.Processes)
-	wtr := bufio.NewWriter(os.Stdout)
-	defer wtr.Flush()
 	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
 	if cli.OutDir == "" {
 		cli.OutDir = "./"
 	}
-	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, wtr, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters)
+	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters)
 	p.Stderr = shared.Slogger
 	var err error
 	ivcf, err := p.StdoutPipe()
@@ -260,9 +259,23 @@ func Main() {
 	vcf := bndFilter(ivcf, BndSupport)
 
 	if cli.Genotype {
-		svtyper.Svtyper(vcf, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true)
+		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true)
 	} else {
+		path := filepath.Join(cli.OutDir, cli.Name+"-smoove.vcf.gz")
+		_, wtr := bgzopen(path)
+		defer shared.Slogger.Printf("wrote to %s", path)
+		check(err)
+		defer wtr.Close()
 		io.Copy(wtr, vcf)
 	}
 	p.Wait()
+}
+
+func bgzopen(path string) (*os.File, *bgzf.Writer) {
+
+	f, err := os.Create(path)
+	check(err)
+	w := bgzf.NewWriter(f, 1)
+	return f, w
+
 }

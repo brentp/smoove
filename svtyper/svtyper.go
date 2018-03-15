@@ -20,7 +20,6 @@ import (
 type cliargs struct {
 	Name      string   `arg:"-n,required,help:project name used in output files."`
 	OutDir    string   `arg:"-o,help:output directory."`
-	Stdout    bool     `arg:"-s,help:output to STDOUT as well as to the sorted file to outdir/name"`
 	Fasta     string   `arg:"-f,required,help:fasta file."`
 	Processes int      `arg:"-p,help:number of processors to use."`
 	VCF       string   `arg:"-v,required,help:vcf to genotype (use - for stdin)."`
@@ -65,7 +64,7 @@ func writeTmp(header []string, lines []string) string {
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
 // p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
-func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []string, outdir, name string, excludeNonRef bool) {
+func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name string, excludeNonRef bool) {
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
@@ -110,28 +109,25 @@ func Svtyper(vcf io.Reader, outvcf io.Writer, reference string, bam_paths []stri
 	var si io.WriteCloser
 
 	// need a multiwriter to write to both stdout and potentially to the gsort+bcftools process
-	var out *bufio.Writer = bufio.NewWriter(outvcf)
 
-	if shared.HasProg("gsort") == "Y" && shared.HasProg("bcftools") == "Y" {
-		o := filepath.Join(outdir, name) + "." + "genotyped.vcf.gz"
-		shared.Slogger.Printf("writing sorted, indexed file to %s", o)
-		exRef := ""
-		if excludeNonRef {
-			shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
-			exRef = " -c 1"
-		}
-		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
-		psort.Stderr = shared.Slogger
-		var err error
-		si, err = psort.StdinPipe()
-		check(err)
-		if outvcf != nil {
-			out = bufio.NewWriter(io.MultiWriter(outvcf, si))
-		} else {
-			out = bufio.NewWriter(si)
-		}
-		check(psort.Start())
+	if !(shared.HasProg("gsort") == "Y" && shared.HasProg("bcftools") == "Y") {
+		shared.Slogger.Fatal("gsort and bcftools required for svtyper")
 	}
+	o := filepath.Join(outdir, name) + "-smoove.genotyped.vcf.gz"
+	shared.Slogger.Printf("writing sorted, indexed file to %s", o)
+	defer shared.Slogger.Printf("wrote sorted, indexed file to %s", o)
+	exRef := ""
+	if excludeNonRef {
+		shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
+		exRef = " -c 1"
+	}
+	psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+	psort.Stderr = shared.Slogger
+	var err error
+	si, err = psort.StdinPipe()
+	check(err)
+	out := bufio.NewWriter(si)
+	check(psort.Start())
 	var mu sync.Mutex
 	var headerPrinted = false
 	var lib string
@@ -219,12 +215,7 @@ func Main() {
 	}
 	rdr, err := xopen.Ropen(cli.VCF)
 	check(err)
-	var wtr io.Writer
-	if cli.Stdout {
-		wtr = bufio.NewWriter(os.Stdout)
-		defer wtr.(*bufio.Writer).Flush()
-	}
 	defer rdr.Close()
 	runtime.GOMAXPROCS(cli.Processes)
-	Svtyper(rdr, wtr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false)
+	Svtyper(rdr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false)
 }

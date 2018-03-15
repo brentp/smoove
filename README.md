@@ -10,7 +10,7 @@ It requires:
 
  + [lumpy and lumpy\_filter](https://github.com/arq5x/lumpy-sv)
 
- And optionally:
+ And optionally (but all highly recommended):
 
  + [svtyper](https://github.com/hall-lab/svtyper): to genotypes SVs
  + [svtools](https://github.com/hall-lab/svtools): required for large cohorts
@@ -51,8 +51,9 @@ Or, you can download a `smoove` binary from here: https://github.com/brentp/smoo
 for small cohorts it's possible to get a jointly-called, genotyped VCF in a **single command**.
 
 ```
-smoove call --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotype /path/to/*.bam > /dev/null
+smoove call --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotype /path/to/*.bam
 ```
+output will go to `./my-cohort-smoove.genotyped.vcf.gz`
 
 the `$exclude` is optional but can be used to remove problematic regions.
 
@@ -63,14 +64,16 @@ For population-level calling (large cohorts) the steps are:
 1. For each sample, call genotypes:
 
 ```
-smoove call --outdir results-smoove/ --name $sample --fasta $fasta -p $threads --genotype /path/to/$sample.bam > /dev/null
+smoove call --outdir results-smoove/ --name $sample --fasta $fasta -p $threads --genotype /path/to/$sample.bam
 ```
+
+output will go to `results-smoove/$sample-smoove.genotyped.vcf.gz``
 
 2. Get the union of sites across all samples (this can parallelize this across as many CPUs or machines as needed):
 
 ```
 # this will create ./merged.sites.vcf.gz
-smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.vcf.gz
+smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.genotyped.vcf.gz
 ```
 
 3. genotype all samples at those sites (this can parallelize this across as many CPUs or machines as needed).
@@ -87,7 +90,8 @@ smoove paste --name $cohort results-genotyped/*.vcf.gz
 
 # Troubleshooting
 
-+ A panic with a message like ` Segmentation fault      (core dumped) | bcftools view -O z -c 1 -o` is likely to mean you have an old version of bcftools [see](#10)
++ A panic with a message like ` Segmentation fault      (core dumped) | bcftools view -O z -c 1 -o` is likely to mean you have an old version of bcftools. 
+  see #10
 
 # TODO
 
