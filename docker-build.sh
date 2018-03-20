@@ -35,7 +35,7 @@ cd $basedir
 wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.1/batchit
 chmod +x /usr/bin/batchit
 
-pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip
+pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip svtools
 
 git clone https://github.com/hall-lab/svtyper
 cd svtyper && python setup.py install

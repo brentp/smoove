@@ -11,12 +11,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
 	arg "github.com/alexflint/go-arg"
+	"github.com/biogo/biogo/io/seqio/fai"
 	"github.com/biogo/hts/bgzf"
+	"github.com/brentp/faidx"
 	"github.com/brentp/go-athenaeum/shpool"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
@@ -193,11 +196,26 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 	shared.Slogger.Print("done calculating bam stats\n")
 }
 
+func writeContigs(b *bufio.Writer, fasta string) {
+	fa, err := faidx.New(fasta)
+	check(err)
+	ctgs := make([]fai.Record, 0, len(fa.Index))
+	for _, idx := range fa.Index {
+		ctgs = append(ctgs, idx)
+	}
+	sort.Slice(ctgs, func(i, j int) bool { return ctgs[i].Start < ctgs[j].Start })
+	for _, ctg := range ctgs {
+		fmt.Fprintf(b, "##contig=<ID=%s,length=%d>\n", ctg.Name, ctg.Length)
+	}
+}
+
 // filter BND variants from in that have < bndSupport
-func bndFilter(in io.Reader, bndSupport int) io.Reader {
+// also sneak in contig header.
+func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 	r, w := io.Pipe()
 	b := bufio.NewReader(in)
 	wb := bufio.NewWriter(w)
+	contigsWritten := false
 	go func() {
 		defer w.Close()
 		defer wb.Flush()
@@ -206,6 +224,11 @@ func bndFilter(in io.Reader, bndSupport int) io.Reader {
 			if len(line) > 0 {
 				if line[0] == '#' {
 					wb.WriteString(line)
+					if !contigsWritten {
+						writeContigs(wb, fasta)
+						contigsWritten = true
+					}
+
 					continue
 				}
 				// only filter out BNDs with < X pieces of evidence when we're streaming directly from lumpy.
@@ -256,7 +279,7 @@ func Main() {
 	}
 	p.Start()
 
-	vcf := bndFilter(ivcf, BndSupport)
+	vcf := bndFilter(ivcf, BndSupport, cli.Fasta)
 
 	if cli.Genotype {
 		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true)
