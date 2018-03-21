@@ -121,7 +121,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
 		exRef = " -c 1"
 	}
-	psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+	psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
 	psort.Stderr = shared.Slogger
 	var err error
 	si, err = psort.StdinPipe()
