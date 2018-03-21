@@ -51,7 +51,7 @@ Or, you can download a `smoove` binary from here: https://github.com/brentp/smoo
 for small cohorts it's possible to get a jointly-called, genotyped VCF in a **single command**.
 
 ```
-smoove call --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotype /path/to/*.bam
+smoove call -x --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotype /path/to/*.bam
 ```
 output will go to `./my-cohort-smoove.genotyped.vcf.gz`
 
@@ -79,7 +79,7 @@ smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.genotyped.vcf.
 3. genotype all samples at those sites (this can parallelize this across as many CPUs or machines as needed).
 
 ```
-smoove genotype -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
+smoove genotype -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
 ```
 
 4. paste all the single sample VCFs with the same number of variants to get a single, squared, joint-called file.
