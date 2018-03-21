@@ -21,6 +21,7 @@ type cliargs struct {
 	Name      string   `arg:"-n,required,help:project name used in output files."`
 	OutDir    string   `arg:"-o,help:output directory."`
 	Fasta     string   `arg:"-f,required,help:fasta file."`
+	RemovePr  bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO."`
 	Processes int      `arg:"-p,help:number of processors to use."`
 	VCF       string   `arg:"-v,required,help:vcf to genotype (use - for stdin)."`
 	Bams      []string `arg:"positional,required,help:path to bam to call."`
@@ -64,7 +65,7 @@ func writeTmp(header []string, lines []string) string {
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
 // p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
-func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name string, excludeNonRef bool) {
+func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name string, excludeNonRef bool, removePR bool) {
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
@@ -121,7 +122,11 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
 		exRef = " -c 1"
 	}
-	psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+	if removePR {
+		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+	} else {
+		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+	}
 	psort.Stderr = shared.Slogger
 	var err error
 	si, err = psort.StdinPipe()
@@ -217,5 +222,5 @@ func Main() {
 	check(err)
 	defer rdr.Close()
 	runtime.GOMAXPROCS(cli.Processes)
-	Svtyper(rdr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false)
+	Svtyper(rdr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false, cli.RemovePr)
 }

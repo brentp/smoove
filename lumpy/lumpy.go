@@ -37,6 +37,7 @@ type cliargs struct {
 	OutDir         string   `arg:"-o,help:output directory."`
 	NoExtraFilters bool     `arg:"-F,help:use lumpy_filter only without extra smoove filters."`
 	Genotype       bool     `arg:"-s,help:stream output to svtyper for genotyping"`
+	RemovePr       bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO (only used with --gentoype)."`
 	Bams           []string `arg:"positional,required,help:path to bam(s) to call."`
 }
 
@@ -282,7 +283,7 @@ func Main() {
 	vcf := bndFilter(ivcf, BndSupport, cli.Fasta)
 
 	if cli.Genotype {
-		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true)
+		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true, cli.RemovePr)
 	} else {
 		path := filepath.Join(cli.OutDir, cli.Name+"-smoove.vcf.gz")
 		_, wtr := bgzopen(path)
