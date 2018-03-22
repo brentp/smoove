@@ -179,7 +179,7 @@ export MOSDEPTH Q1=HIGH
 set -euo pipefail
 samtools index {{bam}}
 mosdepth -f {{fasta}} -n --quantize {{md1}}: {{prefix}} {{bam}}
-rm {{prefix}}.mosdepth.dist.txt
+rm -f {{prefix}}.mosdepth*.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
 `
 		vars := map[string]interface{}{

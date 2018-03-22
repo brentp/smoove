@@ -1,3 +1,7 @@
+v0.1.3 (dev)
+======
++ update command to match latest mosdepth
+
 v0.1.2
 ======
 + bcftools and gsort are now required.
