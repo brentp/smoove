@@ -3,6 +3,8 @@
 `smoove` simplifies and speeds calling and genotyping SVs for short reads. It also improves specificity by removing many
 spurious alignment signals that are indicative of low-level noise and often contribute to spurious calls.
 
+There is a blog-post describing `smoove` in more detail [here](https://brentp.github.io/post/smoove/)
+
 It both supports small cohorts in a single command, and population-level calling with 4 total steps, 2
 of which are parallel by sample.
 
