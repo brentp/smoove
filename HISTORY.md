@@ -1,4 +1,4 @@
-v0.1.3 (dev)
+v0.1.3
 ======
 + update command to match latest mosdepth
 
