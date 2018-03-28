@@ -45,7 +45,7 @@ smoove calls several programs. Those with 'Y' are found on your $PATH. Only thos
   [{{cnvnator}}] cnvnator [per-sample CNV calls]
   [{{mosdepth}}] mosdepth [extra filtering of split and discordant files for better scaling]
   [{{svtyper}}] svtyper [required to genotype SV calls]
-  [{{svtools}}] only needed for large cohorts.
+  [{{svtools}}] svtools [only needed for large cohorts].
 
 Available sub-commands are below. Each can be run with -h for additional help.
 
@@ -103,5 +103,6 @@ func main() {
 	}
 	// remove the prog name from the call
 	os.Args = append(os.Args[:1], os.Args[2:]...)
+	shared.Slogger.Printf("starting with version %s", smoove.Version)
 	p.main()
 }

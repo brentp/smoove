@@ -1,4 +1,6 @@
-# smoove
+# smoove  
+
+[![Build Status](https://travis-ci.org/brentp/smoove.svg?branch=master)](https://travis-ci.org/brentp/smoove)
 
 `smoove` simplifies and speeds calling and genotyping SVs for short reads. It also improves specificity by removing many
 spurious alignment signals that are indicative of low-level noise and often contribute to spurious calls.

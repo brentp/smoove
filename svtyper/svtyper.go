@@ -123,7 +123,13 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		exRef = " -c 1"
 	}
 	if removePR {
-		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+		var cmd string
+		if excludeNonRef {
+			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Ou | bcftools view -Oz %s -o %s && bcftools index --csi %s", reference, exRef, o, o)
+		} else {
+			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Oz -o %s && bcftools index --csi %s", reference, exRef, o, o)
+		}
+		psort = exec.Command("bash", "-c", cmd)
 	} else {
 		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
 	}

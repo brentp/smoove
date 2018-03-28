@@ -1,0 +1,21 @@
+sudo: required
+
+services:
+  - docker
+
+language: go
+
+os:
+  - linux
+
+go:
+  - 1.9
+  - '1.10'
+
+before_install:
+  - go get ./...
+  - go build cmd/smoove/smoove.go
+  - docker pull brentp/smoove
+
+script:
+  - docker run -v `pwd`:/work/ -it brentp/smoove ./tests/functional-tests.sh
