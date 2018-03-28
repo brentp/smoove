@@ -1,3 +1,7 @@
+v0.1.4
+======
++ fix bug when using `-x/--removepr` with `--genotype` (thanks @brad for test-case)
+
 v0.1.3
 ======
 + update command to match latest mosdepth

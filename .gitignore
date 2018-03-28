@@ -1,4 +1,5 @@
 *.fa
+*-cmd.sh
 smoove
 *.bai
 *.crai
