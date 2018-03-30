@@ -42,7 +42,7 @@ func Main() {
 	}
 	f.Close()
 	of := filepath.Join(cli.OutDir, cli.Name) + ".sites.vcf.gz"
-	p = exec.Command("bash", "-c", fmt.Sprintf("svtools lmerge -f 5 -p 0.05 --sum -i %s | bgzip -c > %s", f.Name(), of))
+	p = exec.Command("bash", "-c", fmt.Sprintf("svtools lmerge -f 4 -p 0.05 --sum -i %s | bgzip -c > %s", f.Name(), of))
 	p.Stderr = shared.Slogger
 	p.Stdout = shared.Slogger
 	if err := p.Run(); err != nil {
