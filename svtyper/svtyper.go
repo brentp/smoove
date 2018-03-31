@@ -127,7 +127,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		if excludeNonRef {
 			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Ou | bcftools view -Oz %s -o %s && bcftools index --csi %s", reference, exRef, o, o)
 		} else {
-			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Oz -o %s && bcftools index --csi %s", reference, exRef, o, o)
+			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Oz -o %s && bcftools index --csi %s", reference, o, o)
 		}
 		psort = exec.Command("bash", "-c", cmd)
 	} else {
@@ -138,6 +138,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	si, err = psort.StdinPipe()
 	check(err)
 	out := bufio.NewWriter(si)
+	defer out.Flush()
 	check(psort.Start())
 	var mu sync.Mutex
 	var headerPrinted = false

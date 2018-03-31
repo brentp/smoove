@@ -1,3 +1,7 @@
+v0.1.5
+======
++ use a fixed length of 4 in merge (gives much better merging)
+
 v0.1.4
 ======
 + fix bug when using `-x/--removepr` with `--genotype` (thanks @brad for test-case)

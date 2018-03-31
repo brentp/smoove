@@ -1,4 +1,7 @@
 *.fa
+smoove-tmp*/
+tempclean*/
+tests
 *.bam
 *.bai
 *.cram
