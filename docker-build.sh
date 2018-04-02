@@ -38,7 +38,7 @@ chmod +x /usr/bin/batchit
 pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip svtools
 
 cd $basedir
-git clone -b fixes https://github.com/brentp/svtyper
+git clone https://github.com/hall-lab/svtyper
 cd svtyper && python setup.py install
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
