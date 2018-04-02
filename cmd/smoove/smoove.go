@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strconv"
 
 	"github.com/brentp/smoove"
-	"github.com/brentp/smoove/cnvnator"
 	"github.com/brentp/smoove/lumpy"
 	"github.com/brentp/smoove/merge"
 	"github.com/brentp/smoove/paste"
@@ -18,16 +16,17 @@ import (
 )
 
 type progPair struct {
+	name string
 	help string
 	main func()
 }
 
-var progs = map[string]progPair{
-	"cnvnator": progPair{"call cnvnator and make bedpe files needed by lumpy", cnvnator.Main},
-	"genotype": progPair{"parallelize svtyper on an input VCF", svtyper.Main},
-	"call":     progPair{"call lumpy (and optionally svtyper) after filtering bams", lumpy.Main},
-	"merge":    progPair{"merge and sort (using svtools) calls from multiple samples", merge.Main},
-	"paste":    progPair{"square final calls from multiple samples (each with same number of variants)", paste.Main},
+var progs = []progPair{
+	//"cnvnator": progPair{"call cnvnator and make bedpe files needed by lumpy", cnvnator.Main},
+	progPair{"call", "call lumpy (and optionally svtyper)", lumpy.Main},
+	progPair{"merge", "merge and sort (using svtools) calls from multiple samples", merge.Main},
+	progPair{"genotype", "parallelize svtyper on an input VCF", svtyper.Main},
+	progPair{"paste", "square final calls from multiple samples (each with same number of variants)", paste.Main},
 }
 
 func Description() string {
@@ -42,7 +41,6 @@ smoove calls several programs. Those with 'Y' are found on your $PATH. Only thos
  *[{{lumpy_filter}}] lumpy_filter
  *[{{samtools}}] samtools [only required for CRAM input]
 
-  [{{cnvnator}}] cnvnator [per-sample CNV calls]
   [{{mosdepth}}] mosdepth [extra filtering of split and discordant files for better scaling]
   [{{svtyper}}] svtyper [required to genotype SV calls]
   [{{svtools}}] svtools [only needed for large cohorts].
@@ -53,9 +51,9 @@ Available sub-commands are below. Each can be run with -h for additional help.
 	t := fasttemplate.New(tmpl, "{{", "}}")
 
 	vars := map[string]interface{}{
-		"version":      smoove.Version,
-		"lumpy":        shared.HasProg("lumpy"),
-		"cnvnator":     shared.HasProg("cnvnator"),
+		"version": smoove.Version,
+		"lumpy":   shared.HasProg("lumpy"),
+		//"cnvnator":     shared.HasProg("cnvnator"),
 		"lumpy_filter": shared.HasProg("lumpy_filter"),
 		"samtools":     shared.HasProg("samtools"),
 		"mosdepth":     shared.HasProg("mosdepth"),
@@ -75,20 +73,28 @@ func printProgs() {
 	fmt.Fprintf(wtr, Description())
 	var keys []string
 	l := 5
-	for k := range progs {
-		keys = append(keys, k)
-		if len(k) > l {
-			l = len(k)
+	for _, p := range progs {
+		keys = append(keys, p.name)
+		if len(p.name) > l {
+			l = len(p.name)
 		}
 	}
 	fmtr := "%-" + strconv.Itoa(l) + "s : %s\n"
-	sort.Strings(keys)
-	for _, k := range keys {
-		fmt.Fprintf(wtr, fmtr, k, progs[k].help)
 
+	for _, p := range progs {
+		fmt.Fprintf(wtr, fmtr, p.name, p.help)
 	}
 	os.Exit(1)
 
+}
+
+func get(name string) (*progPair, bool) {
+	for _, p := range progs {
+		if p.name == name {
+			return &p, true
+		}
+	}
+	return nil, false
 }
 
 func main() {
@@ -96,13 +102,13 @@ func main() {
 	if len(os.Args) < 2 {
 		printProgs()
 	}
-	var p progPair
+	var p *progPair
 	var ok bool
-	if p, ok = progs[os.Args[1]]; !ok {
+	if p, ok = get(os.Args[1]); !ok {
 		printProgs()
 	}
 	// remove the prog name from the call
 	os.Args = append(os.Args[:1], os.Args[2:]...)
 	shared.Slogger.Printf("starting with version %s", smoove.Version)
-	p.main()
+	(*p).main()
 }
