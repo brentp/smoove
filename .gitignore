@@ -1,5 +1,8 @@
 *.fa
 *-cmd.sh
+*.gff.gz
+*.gff3.gz
+*.gff
 smoove
 *.bai
 *.crai

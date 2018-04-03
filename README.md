@@ -92,6 +92,12 @@ smoove genotype -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta 
 smoove paste --name $cohort results-genotyped/*.vcf.gz
 ```
 
+5. (optional) annotate the variants with exons, UTRs that overlap from a GFF:
+
+```
+smoove annotate --gff Homo_sapiens.GRCh37.82.gff3.gz $cohort.smoove.square.vcf.gz | bgzip -c > $cohort.smoove.square.anno.vcf.gz
+```
+
 # Troubleshooting
 
 + A panic with a message like ` Segmentation fault      (core dumped) | bcftools view -O z -c 1 -o` is likely to mean you have an old version of bcftools. 

@@ -1,6 +1,7 @@
 v0.1.5
 ======
 + use a fixed length of 4 in merge (gives much better merging)
++ add new annotate command which takes a gff
 
 v0.1.4
 ======

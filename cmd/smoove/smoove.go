@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/brentp/smoove"
+	"github.com/brentp/smoove/annotate"
 	"github.com/brentp/smoove/lumpy"
 	"github.com/brentp/smoove/merge"
 	"github.com/brentp/smoove/paste"
@@ -27,6 +28,7 @@ var progs = []progPair{
 	progPair{"merge", "merge and sort (using svtools) calls from multiple samples", merge.Main},
 	progPair{"genotype", "parallelize svtyper on an input VCF", svtyper.Main},
 	progPair{"paste", "square final calls from multiple samples (each with same number of variants)", paste.Main},
+	progPair{"annotate", "annotate a VCF with gene and quality of SV call", annotate.Main},
 }
 
 func Description() string {
