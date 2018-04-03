@@ -161,6 +161,8 @@ func passOne(path string, ftype string) map[string]string {
 	return geneIdToNameMap
 }
 
+const upstreamDist = 1000
+
 func readGff(path string) map[string]*interval.IntTree {
 	t := make(map[string]*interval.IntTree, 20)
 	geneToNameMap := passOne(path, "gene")
@@ -187,7 +189,27 @@ func readGff(path string) map[string]*interval.IntTree {
 			line = bytes.TrimSpace(line)
 			toks := bytes.SplitN(line, []byte{'\t'}, 11)
 			if bytes.Equal(toks[2], []byte("gene")) {
-				continue
+				chrom, start, end := chromStartEnd(toks)
+				id, name = id2name(toks)
+				if _, ok := t[chrom]; !ok {
+					t[chrom] = &interval.IntTree{}
+				}
+				if err := t[chrom].Insert(irange{Start: start, End: end, UID: uintptr(k), Ftype: "gene", Name: name}, false); err != nil {
+					panic(err)
+				}
+				if toks[6][0] == '-' {
+					start, end = end, end+upstreamDist
+
+				} else if toks[6][0] == '+' {
+					start, end = start-upstreamDist, start
+				} else {
+					log.Println("invalid strand: ", toks[6])
+				}
+				if err := t[chrom].Insert(irange{Start: start, End: end, UID: uintptr(k), Ftype: "upstream", Name: name}, false); err != nil {
+					panic(err)
+				}
+
+				k += 1
 			}
 			if bytes.Equal(toks[2], []byte("transcript")) {
 				continue
