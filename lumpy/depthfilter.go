@@ -119,21 +119,24 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 			if !hasSpl {
 				return true
 			} else {
-				return true
+				return false
 			}
 		}
 
 	}
 	// if flanked by 'S'and right side is > 5 bases
-	//if interOrDistant(r) {
 	cig := r.Cigar
 	if cig[0].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Len() > 5 {
 		return true
 	}
-	//}
+
 	// splitter flanked by 'S'
+	// TODO: require 5 bases.
 	if tags, ok := r.Tag([]byte{'S', 'A'}); ok {
 		atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+		if len(atags) > 1 {
+			return false
+		}
 		for _, t := range atags {
 			// skip things with a splitter that starts and ends with 'S'
 			pieces := bytes.Split(t, []byte{','})
@@ -166,7 +169,6 @@ func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, fi
 
 	var t map[string]*interval.IntTree
 
-	//if _, err := exec.LookPath("mosdepth"); err == nil {
 	if _, err := exec.LookPath("mosdepth"); err == nil && extraFilters {
 
 		f, err := ioutil.TempFile("", "smoove-mosdepth-")
@@ -224,6 +226,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 			tot += 1
 			rchrom := rec.Ref.Name()
 			if rec.MapQ < MinMapQuality {
+				removed++
+				continue
+			}
+			if rec.Flags&(sam.QCFail|sam.Duplicate) != 0 {
 				removed++
 				continue
 			}
@@ -300,9 +306,8 @@ rm {{prefix}}.quantized.bed.gz.csi
 	pct = float64(badInter) / float64(tot) * 100
 	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
 		badInter, tot, pct, filepath.Base(fbam))
-	//if !strings.HasSuffix(fbam, ".split.bam") {
+
 	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"))
-	//}
 
 }
 
@@ -404,10 +409,8 @@ func singletonfilter(fbam string, split bool) {
 				name = "A" + name[1:]
 			}
 			if counts[name] == 1 {
-				//if _, ok := rec.Tag([]byte{'S', 'A'}); !ok {
 				removed++
 				continue
-				//}
 			}
 			check(bw.Write(rec))
 		}

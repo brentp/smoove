@@ -150,7 +150,6 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	lib = flib.Name()
 
 	// run svtyper the first time to get the lib
-	//cmd := fmt.Sprintf("svtyper -B %s -T %s -l %s -o -", strings.Join(bam_paths, ","), reference, lib)
 	p := exec.Command("svtyper", "-B", strings.Join(bam_paths, ","), "-T", reference, "-l", lib, "-o", "-")
 	p.Stderr = shared.Slogger
 	p.Stdout = shared.Slogger
@@ -166,7 +165,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 				t, err := tempclean.TempFile("", "smoove-svtyper-tmp-")
 				check(err)
 				t.Close()
-				p := exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "1000", "-T", reference, "-l", lib, "-o", t.Name())
+				p := exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "10000", "-T", reference, "-l", lib, "-o", t.Name())
 				p.Stderr = shared.Slogger
 				p.Stdout = shared.Slogger
 				check(p.Run())
