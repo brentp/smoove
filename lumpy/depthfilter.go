@@ -66,7 +66,7 @@ func abs(a int) int {
 }
 
 func interOrDistant(r *sam.Record) bool {
-	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 10000000)
+	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 8000000)
 }
 
 // 1. interchromsomal discordant with an XA (maybe only with an XA that would be concordant)?
@@ -74,7 +74,7 @@ func interOrDistant(r *sam.Record) bool {
 // 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
 // 4. an interchromosomal with NM tag and NM > 3 is skipped.
 // 5. any read where both ends are soft clips of > 5 bases are skipped.
-// NOTE: "interchromosomal" here includes same chrom with end > 10MB away.
+// NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	if interOrDistant(r) {
 		// skip interchromosomal with XA
@@ -111,15 +111,13 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 				if err != nil {
 					continue
 				}
-				if abs(pos-r.MatePos) < 100000 {
+				if abs(pos-r.MatePos) < 2000 {
 					hasSpl = true
 					break
 				}
 			}
 			if !hasSpl {
 				return true
-			} else {
-				return false
 			}
 		}
 
@@ -141,7 +139,7 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 			// skip things with a splitter that starts and ends with 'S'
 			pieces := bytes.Split(t, []byte{','})
 			cigar := string(pieces[3])
-			if cigar[len(cigar)-1] != 'S' {
+			if end := cigar[len(cigar)-1]; end != 'S' && end != 'H' {
 				continue
 			}
 			var first rune
@@ -151,12 +149,11 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 				}
 				break
 			}
-			if first != 'S' {
+			if first != 'S' && first != 'H' {
 				continue
 			}
 			return true
 		}
-
 	}
 	return false
 }
@@ -307,6 +304,8 @@ rm {{prefix}}.quantized.bed.gz.csi
 	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
 		badInter, tot, pct, filepath.Base(fbam))
 
+	// TODO move first pass in singletonfilter that counts read names into the functon above as the reads are written.
+	// this will avoid 1 pass on each bam.
 	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"))
 
 }
@@ -324,6 +323,7 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 		wg.Add(1)
 		go func() {
 			for pair := range pch {
+				// do the split and disc serially to use less memory since mosdepth uses ~ 1GB per sample.
 				remove_sketchy(pair[0], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
 				remove_sketchy(pair[1], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
 				proc := exec.Command("bash", "-c", fmt.Sprintf("samtools index %s && samtools index %s", pair[0], pair[1]))
@@ -364,6 +364,8 @@ func cp(dst, src string) error {
 }
 
 func singletonfilter(fbam string, split bool) {
+
+	t0 := time.Now()
 
 	f, err := os.Open(fbam)
 	check(err)
@@ -425,5 +427,5 @@ func singletonfilter(fbam string, split bool) {
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)
-	shared.Slogger.Printf("removed %d singletons out of %d reads (%.2f%%) from %s", removed, tot, pct, filepath.Base(f.Name()))
+	shared.Slogger.Printf("removed %d singletons out of %d reads (%.2f%%) from %s in %.0f seconds", removed, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds())
 }

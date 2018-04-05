@@ -17,17 +17,25 @@ apt-get -qy install \
     syslog-ng libssl-dev libtool autoconf automake \
     libcurl4-openssl-dev libffi-dev libblas-dev liblapack-dev libatlas-base-dev
 
+git clone --depth 1 https://github.com/ebiggers/libdeflate.git 
+cd libdeflate
+make -j 2 CFLAGS='-fPIC -O3' libdeflate.a
+cp libdeflate.a /usr/local/lib
+cp libdeflate.h /usr/local/include
+cd $basedir
+rm -rf libdeflate
+
 git clone --recursive https://github.com/samtools/htslib.git
 git clone --recursive https://github.com/samtools/samtools.git
 git clone --recursive https://github.com/samtools/bcftools.git
-cd htslib && git checkout 1.7 && autoheader && autoconf && ./configure --enable-libcurl
+cd htslib && git checkout 1.8 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate
 cd .. && make -j4 -C htslib install
 cd $basedir
-cd samtools && git checkout 1.7
+cd samtools && git checkout 1.8
 autoreconf && ./configure && make -j4 install
 cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
-cd bcftools && git checkout 1.6
+cd bcftools && git checkout 1.8
 make -j4
 cp ./bcftools /usr/local/bin
 cd $basedir
