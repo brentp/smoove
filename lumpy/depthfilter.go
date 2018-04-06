@@ -83,11 +83,11 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 		}
 		if nm, ok := r.Tag([]byte{'N', 'M'}); ok {
 			if v, ok := nm.Value().(uint32); ok {
-				if v > 3 {
+				if v > 4 {
 					return true
 				}
 			} else if v, ok := nm.Value().(int32); ok {
-				if v > 3 {
+				if v > 4 {
 					return true
 				}
 			}
@@ -111,7 +111,7 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 				if err != nil {
 					continue
 				}
-				if abs(pos-r.MatePos) < 2000 {
+				if abs(pos-r.MatePos) < 1000 {
 					hasSpl = true
 					break
 				}

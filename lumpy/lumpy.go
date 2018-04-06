@@ -167,7 +167,7 @@ type cs struct {
 
 func cs_from_filter(f filter, outdir string) cs {
 	return cs{Sample: f.sample, DiscPath: f.disc, SplitPath: f.split, HistPath: f.histpath(outdir),
-		Mean: fmt.Sprintf("%.3f", f.stats.TemplateMean), Std: fmt.Sprintf("%.3f", f.stats.TemplateSD),
+		Mean: fmt.Sprintf("%.2f", f.stats.TemplateMean), Std: fmt.Sprintf("%.2f", f.stats.TemplateSD),
 		ReadLength: strconv.Itoa(f.stats.MaxReadLength),
 	}
 }

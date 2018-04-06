@@ -1,7 +1,8 @@
 v0.1.5
 ======
++ sensitivity increases for variants without split reads.
 + use a fixed length of 4 in merge (gives much better merging)
-+ add new annotate command which takes a gff
++ add new annotate command which takes a gff and annotates with gene names
 + increase max_reads argument to svtyper to reduce false negatives
 + remove QCFail and duplicate reads from split and disc.bams. This is now
   part of `smoove` but also fixed in `lumpy_filter` upstream.
