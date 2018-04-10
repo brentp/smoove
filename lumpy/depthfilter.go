@@ -65,6 +65,22 @@ func abs(a int) int {
 	return -a
 }
 
+func nm_above(r *sam.Record, max_mismatches int) bool {
+	if nm, ok := r.Tag([]byte{'N', 'M'}); ok {
+		if v, ok := nm.Value().(uint32); ok {
+			if v > uint32(max_mismatches) {
+				return true
+			}
+		} else if v, ok := nm.Value().(int32); ok {
+			if v > int32(max_mismatches) {
+				return true
+			}
+		}
+	}
+	return false
+
+}
+
 func interOrDistant(r *sam.Record) bool {
 	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 8000000)
 }
@@ -74,6 +90,7 @@ func interOrDistant(r *sam.Record) bool {
 // 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
 // 4. an interchromosomal with NM tag and NM > 3 is skipped.
 // 5. any read where both ends are soft clips of > 5 bases are skipped.
+// 6. any read where there are more than 5 mismatches.
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	if interOrDistant(r) {
@@ -81,16 +98,8 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 		if _, ok := r.Tag([]byte{'X', 'A'}); ok {
 			return true
 		}
-		if nm, ok := r.Tag([]byte{'N', 'M'}); ok {
-			if v, ok := nm.Value().(uint32); ok {
-				if v > 4 {
-					return true
-				}
-			} else if v, ok := nm.Value().(int32); ok {
-				if v > 4 {
-					return true
-				}
-			}
+		if nm_above(r, 4) {
+			return true
 		}
 
 		// skip inter-chrom with >XX% soft if no SA
@@ -125,6 +134,10 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	// if flanked by 'S'and right side is > 5 bases
 	cig := r.Cigar
 	if cig[0].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Len() > 5 {
+		return true
+	}
+
+	if nm_above(r, 5) {
 		return true
 	}
 

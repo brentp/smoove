@@ -36,6 +36,8 @@ lumpy-sv
 *.gff3.gz
 *.gff
 *.bai
+tmp.*
+CHM/
 *.crai
 *.bam
 *.vcf.gz

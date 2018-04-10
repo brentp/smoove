@@ -1,3 +1,7 @@
+v0.1.6
+======
++ sensitivity improvement by dropping reads with > 5 mismatches.
+
 v0.1.5
 ======
 + sensitivity increases for variants without split reads.
