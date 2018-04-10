@@ -81,6 +81,22 @@ func nm_above(r *sam.Record, max_mismatches int) bool {
 
 }
 
+func lowerQualWithSAToDifferentChrom(r *sam.Record) bool {
+	if r.MapQ > 50 {
+		return false
+	}
+	t, hasSA := r.Tag([]byte{'S', 'A'})
+	if !hasSA {
+		return false
+	}
+	if !strings.HasPrefix(string(t), r.MateRef.Name()+",") {
+		if nm_above(r, 1) {
+			return true
+		}
+	}
+	return false
+}
+
 func interOrDistant(r *sam.Record) bool {
 	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 8000000)
 }
@@ -91,6 +107,7 @@ func interOrDistant(r *sam.Record) bool {
 // 4. an interchromosomal with NM tag and NM > 3 is skipped.
 // 5. any read where both ends are soft clips of > 5 bases are skipped.
 // 6. any read where there are more than 5 mismatches.
+// 7. any read with mapq <= 50 and NM > 1 and an SA to a chrom other than the one for the Mate.
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	if interOrDistant(r) {
@@ -138,6 +155,9 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	}
 
 	if nm_above(r, 5) {
+		return true
+	}
+	if lowerQualWithSAToDifferentChrom(r) {
 		return true
 	}
 
