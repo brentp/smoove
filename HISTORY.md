@@ -1,3 +1,8 @@
+v0.1.7 (dev)
+======
++ add a `SHQ`: `smoove het-quality` score to the FORMAT field and a `MSHQ`:`mean smoove het-quality` score
+  to the INFO. Variants with a het-quality of 4 are quite good.
+
 v0.1.6
 ======
 + sensitivity improvement by dropping reads with > 5 mismatches.

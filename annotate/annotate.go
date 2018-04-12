@@ -167,13 +167,6 @@ func readGff(path string) map[string]*interval.IntTree {
 	t := make(map[string]*interval.IntTree, 20)
 	geneToNameMap := passOne(path, "gene")
 	transcriptToGeneMap := passOne(path, "transcript")
-	/*
-			x, err := os.Create("x.debug")
-			for k, v := range transcriptToGeneMap {
-				fmt.Fprintf(x, "%s\t%s\n", k, v)
-			}
-		x.Close()
-	*/
 	f, err := xopen.Ropen(path)
 	if err != nil {
 		panic(err)
@@ -286,6 +279,95 @@ func max(a, b int) int {
 	return b
 }
 
+func getval(fields map[string]string, key string, vdefault float64) (float64, error) {
+	sval, ok := fields[key]
+	var val float64
+	var err error
+	if !ok {
+		return vdefault, fmt.Errorf("field %s not found", key)
+	}
+	val, err = strconv.ParseFloat(sval, 64)
+	if err != nil {
+		return vdefault, fmt.Errorf("couldn't parse float from %s for field %s", sval, key)
+	}
+	return val, nil
+}
+
+func abs(a int) int {
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+func getcisum(v *vcfgo.Variant) float64 {
+	cipos, err := v.Info_.Get("CIPOS")
+	if err != nil {
+		log.Fatal(err)
+	}
+	ciend, err := v.Info_.Get("CIEND")
+	_ = ciend
+	if err != nil {
+		log.Fatal(err)
+	}
+	cisum := abs(cipos.([]int)[0])
+	cisum += abs(cipos.([]int)[1])
+	cisum += abs(ciend.([]int)[0])
+	cisum += abs(ciend.([]int)[1])
+	return float64(cisum)
+}
+
+func smooveSampleQuality(fields map[string]string, cisum float64) int {
+	ab, err := getval(fields, "AB", 0.5)
+	if err != nil {
+		return 0
+	}
+	as, err := getval(fields, "AS", 0)
+	if err != nil {
+		return 0
+	}
+	// high quality
+	if ab > 0.167 {
+		if as > 1.5 && cisum < 40 {
+			return 4
+		}
+	}
+	asc, err := getval(fields, "ASC", 0)
+	if err != nil {
+		return 0
+	}
+	// low quality
+	if ab <= 0.167 && asc < 0.5 && as < 0.5 {
+		return 1
+	}
+	ap, _ := getval(fields, "AP", 0)
+	if ap > 7 && cisum < 200 {
+		return 3
+	}
+	return 4
+}
+
+func setSmooveQuality(variant *vcfgo.Variant) float64 {
+	var n, sum float64
+	cisum := getcisum(variant)
+	variant.Format = append(variant.Format, "SHQ")
+	for _, s := range variant.Samples {
+		if len(s.GT) == 2 && s.GT[0] == 0 && s.GT[1] == 1 {
+			q := smooveSampleQuality(s.Fields, cisum)
+			s.Fields["SHQ"] = strconv.Itoa(q)
+			n++
+			sum += float64(q)
+
+		} else {
+			s.Fields["SHQ"] = "-1"
+		}
+	}
+	if n == 0 {
+		return -1
+	}
+	return sum / n
+}
+
 func annotate(vcf *vcfgo.Reader, out *vcfgo.Writer, genes map[string]*interval.IntTree) {
 
 	overlapping := make([]irange, 0, 24)
@@ -295,6 +377,8 @@ func annotate(vcf *vcfgo.Reader, out *vcfgo.Writer, genes map[string]*interval.I
 		if variant == nil {
 			break
 		}
+		mq := setSmooveQuality(variant)
+		variant.Info().Set("MSHQ", mq)
 		Overlaps(genes[variant.Chromosome], int(variant.Start()), int(variant.End()), &overlapping)
 		if len(overlapping) == 0 {
 			out.WriteVariant(variant)
@@ -339,7 +423,9 @@ func Main() {
 	if err != nil {
 		panic(err)
 	}
-	vcf, err := vcfgo.NewReader(f, true)
+	vcf, err := vcfgo.NewReader(f, false)
+	vcf.AddFormatToHeader("SHQ", "1", "Number", "smoove het quality: -1==NOT HET 0==UNKNOWN, 1==VERYLOW, 3=MED, 4=HIGH")
+	vcf.AddInfoToHeader("MSHQ", "1", "Number", "mean smoove het quality: -1==NOT HET 0==UNKNOWN, 1==VERYLOW, 3=MED, 4=HIGH")
 	vcf.AddInfoToHeader("smoove_gene", ".", "String", "genes overlapping variants. format is gene|feature:nfeatures:nbases,...")
 	if err != nil {
 		panic(err)
