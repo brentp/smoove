@@ -117,6 +117,6 @@ func Main() {
 	if err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-	shared.Slogger.Printf("wrote squared file to file to %s", outvcf)
+	shared.Slogger.Printf("wrote squared file to %s", outvcf)
 	wg.Wait()
 }
