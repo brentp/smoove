@@ -1,3 +1,3 @@
 package smoove
 
-const Version = "0.1.7-dev"
+const Version = "0.1.7"

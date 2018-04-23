@@ -1,4 +1,4 @@
-v0.1.7 (dev)
+v0.1.7
 ======
 + add a `SHQ`: `smoove het-quality` score to the FORMAT field and a `MSHQ`:`mean smoove het-quality` score
   to the INFO. Variants with a het-quality of 4 are quite good.

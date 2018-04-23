@@ -26,6 +26,7 @@ import (
 	"github.com/brentp/smoove/shared"
 	"github.com/brentp/smoove/svtyper"
 	"github.com/brentp/xopen"
+	"github.com/pkg/errors"
 )
 
 type cliargs struct {
@@ -199,7 +200,7 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 
 func writeContigs(b *bufio.Writer, fasta string) {
 	fa, err := faidx.New(fasta)
-	check(err)
+	check(errors.Wrapf(err, "error opening fasta file: %s", fasta))
 	ctgs := make([]fai.Record, 0, len(fa.Index))
 	for _, idx := range fa.Index {
 		ctgs = append(ctgs, idx)
