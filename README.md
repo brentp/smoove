@@ -92,22 +92,21 @@ smoove genotype -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta 
 smoove paste --name $cohort results-genotyped/*.vcf.gz
 ```
 
-5. (optional) annotate the variants with exons, UTRs that overlap from a GFF:
+5. (optional) annotate the variants with exons, UTRs that overlap from a GFF and annotate high-quality heterozygotes:
 
 ```
 smoove annotate --gff Homo_sapiens.GRCh37.82.gff3.gz $cohort.smoove.square.vcf.gz | bgzip -c > $cohort.smoove.square.anno.vcf.gz
 ```
 
+This adds a `SHQ` (Smoove Het Quality) tag to every sample format) a value of **4 is a high quality** call and the value of 1 is low quality. -1 is non-het.
+It also adds a `MSHQ` for Mean SHQ to the INFO field which is the mean SHQ score across all heterozygous samples for that variant.
+
+As a first pass, users can look for variants with MSHQ > 3
+
 # Troubleshooting
 
 + A panic with a message like ` Segmentation fault      (core dumped) | bcftools view -O z -c 1 -o` is likely to mean you have an old version of bcftools. 
   see #10
-
-# TODO
-
-+ [ ] annotate high-quality calls
-+ [ ] incorporate WHAM
-+ [ ] incorporate cnvnator (this is already a sub-command, but there's no way to use the output)
 
 # see also
 
