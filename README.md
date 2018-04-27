@@ -108,6 +108,10 @@ As a first pass, users can look for variants with MSHQ > 3
 + A panic with a message like ` Segmentation fault      (core dumped) | bcftools view -O z -c 1 -o` is likely to mean you have an old version of bcftools. 
   see #10
 
++ `smoove` will write to the system TMPDIR. For large cohorts, make sure to set this to something with a lot of space. e.g. `export TMPDIR=/path/to/big`
+
++ `smoove` requires recent version of `lumpy` and `lumpy_filter` so build those from source or get the most recent bioconda version.
+
 # see also
 
 [svtools](https://github.com/hall-lab/svtools)
