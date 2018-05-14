@@ -1,3 +1,7 @@
+v0.1.8
+======
++ don't use --sum in merge step. this reduces the size of CI when using `smoove merge`
+
 v0.1.7
 ======
 + add a `SHQ`: `smoove het-quality` score to the FORMAT field and a `MSHQ`:`mean smoove het-quality` score
