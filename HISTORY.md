@@ -1,3 +1,7 @@
+v0.1.9 (dev)
+======
++ better error message in merge.
+
 v0.1.8
 ======
 + don't use --sum in merge step. this reduces the size of CI when using `smoove merge`
