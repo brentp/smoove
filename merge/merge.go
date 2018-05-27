@@ -30,8 +30,9 @@ func Main() {
 		panic(err)
 	}
 
-	args := []string{"lsort", "-r", "-t", os.TempDir(), "-b", "1000"}
+	args := []string{"lsort", "-r", "-t", os.TempDir(), "-b", "400"}
 	args = append(args, cli.VCFs...)
+	shared.Slogger.Printf("finished sorting %d files; merge starting.", len(cli.VCFs))
 
 	p := exec.Command("svtools", args...)
 	p.Stderr = shared.Slogger
@@ -42,7 +43,7 @@ func Main() {
 	}
 	f.Close()
 	of := filepath.Join(cli.OutDir, cli.Name) + ".sites.vcf.gz"
-	p = exec.Command("bash", "-c", fmt.Sprintf("svtools lmerge -f 4 -p 0.01 -i %s | grep -v '^##bcftools_viewCommand' | bgzip -c > %s", f.Name(), of))
+	p = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; svtools lmerge -f 4 -p 0.01 -i %s | grep -v '^##bcftools_viewCommand' | bgzip -c > %s", f.Name(), of))
 	p.Stderr = shared.Slogger
 	p.Stdout = shared.Slogger
 	if err := p.Run(); err != nil {
