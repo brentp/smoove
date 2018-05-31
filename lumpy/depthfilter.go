@@ -359,7 +359,7 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 				// do the split and disc serially to use less memory since mosdepth uses ~ 1GB per sample.
 				remove_sketchy(pair[0], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
 				remove_sketchy(pair[1], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
-				proc := exec.Command("bash", "-c", fmt.Sprintf("samtools index %s && samtools index %s", pair[0], pair[1]))
+				proc := exec.Command("bash", "-c", fmt.Sprintf("set -eu; samtools index %s && samtools index %s", pair[0], pair[1]))
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())

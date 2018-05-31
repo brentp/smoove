@@ -146,7 +146,7 @@ func run_lumpy(bams []filter, fa string, outdir string, has_cnvnator bool, name 
 		}
 	}
 
-	cmdStr := lumpy_tmpl + buf.String()
+	cmdStr := "set -euo pipefail\n" + lumpy_tmpl + buf.String()
 	f, err := os.Create(outdir + "/" + name + "-lumpy-cmd.sh")
 	shared.Slogger.Write([]byte("wrote lumpy command to " + f.Name()))
 	check(err)

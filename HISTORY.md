@@ -1,6 +1,7 @@
 v0.1.9 (dev)
 ======
 + better error message in merge.
++ use set -e in process calls so we don't exit with 0 even on failure
 
 v0.1.8
 ======
