@@ -40,7 +40,7 @@ make -j4
 cp ./bcftools /usr/local/bin
 cd $basedir
 
-wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.1/batchit
+wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.2/batchit
 chmod +x /usr/bin/batchit
 
 pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip svtools
