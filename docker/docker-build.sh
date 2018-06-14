@@ -28,17 +28,23 @@ rm -rf libdeflate
 git clone --recursive https://github.com/samtools/htslib.git
 git clone --recursive https://github.com/samtools/samtools.git
 git clone --recursive https://github.com/samtools/bcftools.git
-cd htslib && git checkout 1.8 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate
-cd .. && make -j4 -C htslib install
+cd htslib && git checkout 5a062a4 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate
+cd .. && make -j4 CFLAGS="-fPIC -O3" -C htslib install
 cd $basedir
-cd samtools && git checkout 1.8
-autoreconf && ./configure && make -j4 install
-cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
-cd bcftools && git checkout 1.8
-make -j4
+cd bcftools #&& git checkout 1.7
+autoreconf && ./configure
+set +e
+make bcftools "PLUGINS_ENABLED=no" #
+#"CFLAGS=-g -Wall -O2 -pedantic -std=c99 -D_XOPEN_SOURCE=600"
+set -e
 cp ./bcftools /usr/local/bin
 cd $basedir
+rm -rf bcftools
+
+cd samtools && git checkout 1.8
+autoreconf && ./configure && make -j2 CFLAGS='-fPIC -O3' install
+cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
 wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.2/batchit
 chmod +x /usr/bin/batchit
@@ -48,6 +54,9 @@ pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2
 cd $basedir
 git clone https://github.com/hall-lab/svtyper
 cd svtyper && python setup.py install
+cd $basedir
+rm -rf svtyper
+
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
 chmod +x /usr/local/bin/mosdepth
@@ -62,44 +71,9 @@ cd lumpy-sv
 make -j 3
 cp ./bin/* /usr/local/bin/
 
-
-#apt-get -qy install libroot-math-mathmore-dev                              
-#export CPLUS_INCLUDE_PATH=/usr/include/root/
-
-## CNVnator stuffs
-#git clone --depth 1 http://root.cern.ch/git/root.git
-#mkdir root/ibuild
-#cd root/ibuild
-#cmake -D x11=OFF ../
-#make -j4 install
-#cd $basedir
-#rm -rf root
-
-# YEPP not working even after patching cnvnator. just stalls at partition step.
-#cd /
-#wget -q http://bitbucket.org/MDukhan/yeppp/downloads/yeppp-1.0.0.tar.bz2
-#tar xjvf yeppp-1.0.0.tar.bz2
-#rm yeppp-1.0.0.tar.bz2
-#export LD_LIBRARY_PATH=/yeppp-1.0.0/binaries/linux/x86_64/
-#echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> /etc/bash.bashrc
-#echo "/yeppp-1.0.0/binaries/linux/x86_64/" >> /etc/ld.so.conf
-
 cd $basedir
 
-#git clone --depth 1 -b stdin https://github.com/brentp/CNVnator
-#cd CNVnator
-#pwd
-#ln -s $basedir/samtools/ .
-#ln -s $basedir/htslib/ .
-#make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto" YEPPPLIBDIR=$basedir/yeppp-1.0.0/binaries/linux/x86_64/ YEPPPINCLUDEDIR=$basedir/yeppp-1.0.0/library/headers
-#make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto"
-
-#cp ./cnvnator /usr/local/bin
-#cd $basedir
-#rm -rf CNVnator
 rm -rf lumpy-sv
-rm -rf bcftools
-rm -rf svtyper
 
 ldconfig
 
