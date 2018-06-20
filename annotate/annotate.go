@@ -424,8 +424,8 @@ func Main() {
 		panic(err)
 	}
 	vcf, err := vcfgo.NewReader(f, false)
-	vcf.AddFormatToHeader("SHQ", "1", "Number", "smoove het quality: -1==NOT HET 0==UNKNOWN, 1==VERYLOW, 3=MED, 4=HIGH")
-	vcf.AddInfoToHeader("MSHQ", "1", "Number", "mean smoove het quality: -1==NOT HET 0==UNKNOWN, 1==VERYLOW, 3=MED, 4=HIGH")
+	vcf.AddFormatToHeader("SHQ", "1", "Integer", "smoove het quality: -1==NOT HET 0==UNKNOWN, 1==VERYLOW, 3=MED, 4=HIGH")
+	vcf.AddInfoToHeader("MSHQ", "1", "Float", "mean smoove het quality: -1==NOT HET 0==UNKNOWN, 1==VERYLOW, 3=MED, 4=HIGH")
 	vcf.AddInfoToHeader("smoove_gene", ".", "String", "genes overlapping variants. format is gene|feature:nfeatures:nbases,...")
 	if err != nil {
 		panic(err)

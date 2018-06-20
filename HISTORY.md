@@ -1,4 +1,8 @@
-v0.1.9 (dev)
+v0.1.10 (dev)
+======= 
++ fix type in annotate (s/Number/Integer/)
+
+v0.1.9
 ======
 + better error message in merge.
 + use set -e in process calls so we don't exit with 0 even on failure
