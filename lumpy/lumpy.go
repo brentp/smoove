@@ -92,9 +92,13 @@ func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 		return filter{bam: bam, split: prefix + ".split.bam", disc: prefix + ".disc.bam", sample: sm}
 	}
 
+	// find path for lumpy_filter
+	lumpy_filter_path, err := exec.LookPath("lumpy_filter")
+	check(err)
+
 	f := filter{bam: bam, split: prefix + ".split.bam", disc: prefix + ".disc.bam", sample: sm}
 	// use .tmp.bam in case of error while running lumpy filter.
-	f.command = fmt.Sprintf("lumpy_filter -f %s %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", reference, bam, f.split, f.disc, 2, f.split, f.split, f.disc, f.disc)
+	f.command = fmt.Sprintf("%s -f %s %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", lumpy_filter_path, reference, bam, f.split, f.disc, 2, f.split, f.split, f.disc, f.disc)
 	return f
 }
 
