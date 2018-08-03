@@ -52,13 +52,12 @@ chmod +x /usr/bin/batchit
 pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip svtools
 
 cd $basedir
-git clone https://github.com/hall-lab/svtyper
+git clone -b no-big-ci https://github.com/brentp/svtyper
 cd svtyper && python setup.py install
 cd $basedir
 rm -rf svtyper
 
-
-wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.1/mosdepth
+wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.3/mosdepth
 chmod +x /usr/local/bin/mosdepth
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
 chmod +x /usr/bin/gsort

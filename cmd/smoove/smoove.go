@@ -8,6 +8,7 @@ import (
 
 	"github.com/brentp/smoove"
 	"github.com/brentp/smoove/annotate"
+	"github.com/brentp/smoove/hipstr"
 	"github.com/brentp/smoove/lumpy"
 	"github.com/brentp/smoove/merge"
 	"github.com/brentp/smoove/paste"
@@ -29,6 +30,7 @@ var progs = []progPair{
 	progPair{"genotype", "parallelize svtyper on an input VCF", svtyper.Main},
 	progPair{"paste", "square final calls from multiple samples (each with same number of variants)", paste.Main},
 	progPair{"annotate", "annotate a VCF with gene and quality of SV call", annotate.Main},
+	progPair{"hipstr", "run hipSTR in parallel", hipstr.Main},
 }
 
 func Description() string {
