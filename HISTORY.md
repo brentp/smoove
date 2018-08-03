@@ -1,4 +1,4 @@
-v0.1.10 (dev)
+v0.1.10
 ======= 
 + fix type in annotate (s/Number/Integer/)
 
