@@ -98,7 +98,7 @@ func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 	return f
 }
 
-func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool) *exec.Cmd {
+func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool, minWeight int) *exec.Cmd {
 	if pool == nil {
 		pool = shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: shared.Prefix})
 	}
@@ -117,16 +117,16 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, pool *s
 
 	remove_sketchy_all(filters, 800, reference, exclude_bed, filter_chroms, extraFilters)
 	shared.Slogger.Print("starting lumpy")
-	p := run_lumpy(filters, reference, outdir, false, project)
+	p := run_lumpy(filters, reference, outdir, false, project, minWeight)
 	return p
 }
 
-func run_lumpy(bams []filter, fa string, outdir string, has_cnvnator bool, name string) *exec.Cmd {
+func run_lumpy(bams []filter, fa string, outdir string, has_cnvnator bool, name string, minWeight int) *exec.Cmd {
 	if _, err := exec.LookPath("lumpy"); err != nil {
 		shared.Slogger.Fatal("lumpy not found on path")
 	}
 
-	lumpy_tmpl := "set -euo pipefail; lumpy -msw 3 -mw 4 -t $(mktemp) -tt 0 -P "
+	lumpy_tmpl := fmt.Sprintf("set -euo pipefail; lumpy -msw %d -mw %d -t $(mktemp) -tt 0 -P ", minWeight, minWeight)
 	pe_tmpl := "-pe id:{{.Sample}},bam_file:{{.DiscPath}},histo_file:{{.HistPath}},mean:{{.Mean}},stdev:{{.Std}},read_length:{{.ReadLength}},min_non_overlap:{{.ReadLength}},discordant_z:4,back_distance:30,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
 	sr_tmpl := "-sr id:{{.Sample}},bam_file:{{.SplitPath}},back_distance:10,weight:1,min_mapping_threshold:" + strconv.Itoa(int(MinMapQuality)) + " "
 
@@ -211,8 +211,33 @@ func writeContigs(b *bufio.Writer, fasta string) {
 	}
 }
 
+func fixStartEnd(line string) string {
+	sidx0 := strings.Index(line, "\t") + 1
+	sidx1 := sidx0 + strings.Index(line[sidx0:], "\t")
+	start, err := strconv.Atoi(line[sidx0:sidx1])
+	check(err)
+
+	eidx0 := strings.Index(line, "END=") + 4
+	if eidx0 == -1 {
+		panic("couldn't find END= in line " + line)
+	}
+	eidx1 := strings.Index(line[eidx0:], ";")
+	if eidx1 == -1 {
+		eidx1 = len(line)
+	} else {
+		eidx1 += eidx0
+	}
+	end, err := strconv.Atoi(line[eidx0:eidx1])
+	if start < end {
+		return line
+	}
+	line = line[:sidx0] + line[eidx0:eidx1] + line[sidx1:eidx0] + line[sidx0:sidx1] + line[eidx1:]
+	return line
+}
+
 // filter BND variants from in that have < bndSupport
 // also sneak in contig header.
+// and also check and fix END > POS
 func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 	r, w := io.Pipe()
 	b := bufio.NewReader(in)
@@ -246,6 +271,8 @@ func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 							continue
 						}
 					}
+				} else {
+					line = fixStartEnd(line)
 				}
 				wb.WriteString(line)
 			}
@@ -259,7 +286,8 @@ func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 	return r
 }
 
-const BndSupport = 6
+const MinWeight = 5
+const BndSupport = MinWeight + 2
 
 func Main() {
 	if _, err := exec.LookPath("lumpy"); err != nil {
@@ -272,7 +300,7 @@ func Main() {
 	if cli.OutDir == "" {
 		cli.OutDir = "./"
 	}
-	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters)
+	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters, MinWeight)
 	p.Stderr = shared.Slogger
 	var err error
 	ivcf, err := p.StdoutPipe()

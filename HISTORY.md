@@ -1,3 +1,8 @@
+v0.1.11
+=======
++ flip start and end for small percent of cases where that's a problem
++ increase min weight and min sample weight to improve precision
+
 v0.1.10
 ======= 
 + fix type in annotate (s/Number/Integer/)
