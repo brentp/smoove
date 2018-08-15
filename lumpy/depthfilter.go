@@ -110,6 +110,9 @@ func interOrDistant(r *sam.Record) bool {
 // 7. any read with mapq <= 50 and NM > 1 and an SA to a chrom other than the one for the Mate.
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
+	if nm_above(r, 5) {
+		return true
+	}
 	if interOrDistant(r) {
 		// skip interchromosomal with XA
 		if _, ok := r.Tag([]byte{'X', 'A'}); ok {
@@ -154,9 +157,6 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 		return true
 	}
 
-	if nm_above(r, 5) {
-		return true
-	}
 	if lowerQualWithSAToDifferentChrom(r) {
 		return true
 	}
