@@ -37,6 +37,7 @@ type cliargs struct {
 	Processes      int      `arg:"-p,help:number of processors to parallelize."`
 	OutDir         string   `arg:"-o,help:output directory."`
 	NoExtraFilters bool     `arg:"-F,help:use lumpy_filter only without extra smoove filters."`
+	Support        int      `arg:"-S,help:mininum support required to report a variant."`
 	Genotype       bool     `arg:"-s,help:stream output to svtyper for genotyping"`
 	RemovePr       bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO (only used with --gentoype)."`
 	Bams           []string `arg:"positional,required,help:path to bam(s) to call."`
@@ -286,21 +287,20 @@ func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 	return r
 }
 
-const MinWeight = 5
-const BndSupport = MinWeight + 2
+const BndSupportExtra = 2
 
 func Main() {
 	if _, err := exec.LookPath("lumpy"); err != nil {
 		shared.Slogger.Fatal("lumpy executable not found in PATH")
 	}
-	cli := cliargs{Processes: 3, ExcludeChroms: "hs37d5,~:,~^GL,~decoy"}
+	cli := cliargs{Processes: 3, ExcludeChroms: "hs37d5,~:,~^GL,~decoy", Support: 4}
 	arg.MustParse(&cli)
 	runtime.GOMAXPROCS(cli.Processes)
 	filter_chroms := strings.Split(strings.TrimSpace(cli.ExcludeChroms), ",")
 	if cli.OutDir == "" {
 		cli.OutDir = "./"
 	}
-	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters, MinWeight)
+	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters, cli.Support)
 	p.Stderr = shared.Slogger
 	var err error
 	ivcf, err := p.StdoutPipe()
@@ -309,7 +309,7 @@ func Main() {
 	}
 	p.Start()
 
-	vcf := bndFilter(ivcf, BndSupport, cli.Fasta)
+	vcf := bndFilter(ivcf, cli.Support+BndSupportExtra, cli.Fasta)
 
 	if cli.Genotype {
 		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true, cli.RemovePr)
