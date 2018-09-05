@@ -1,7 +1,7 @@
 v0.1.11
 =======
 + flip start and end for small percent of cases where that's a problem
-+ increase min weight and min sample weight to improve precision
++ expose min sample weight to allow adjusting required support for each variant
 
 v0.1.10
 ======= 
