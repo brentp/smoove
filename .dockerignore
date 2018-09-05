@@ -2,8 +2,9 @@
 smoove-tmp*/
 tempclean*/
 tests
-*.bam
 *.gff.*
+*.bed.gz
+*.gff
 *.gff3*
 *.csi
 *.tbi
@@ -11,7 +12,6 @@ tests
 *.crai
 ash-bcbio
 *.cram
-*.fa
 *.vcf
 *.vcf.gz
 *.bcf
@@ -30,7 +30,6 @@ lumpy-sv
 *.cnvnator
 *.txt
 *.gz
-*.fa
 *-cmd.sh
 *.gff.gz
 *.gff3.gz
@@ -45,9 +44,7 @@ CHM/
 *.csi
 *.vcf
 *.bedpe
-*.bam
 *.histo
-*.fai
 *.lib
 *.cnvnator
 *.root

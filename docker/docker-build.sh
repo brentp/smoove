@@ -49,13 +49,22 @@ cd $basedir && cp ./samtools/samtools /usr/local/bin/
 wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.2/batchit
 chmod +x /usr/bin/batchit
 
-pip install -U awscli cython slurmpy toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip svtools
+export HTSLIB_LIBRARY_DIR=/usr/local/lib
+export HTSLIB_INCLUDE_DIR=/usr/local/include
+pip install numpy pysam awscli cython toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip
+
+cd $basedir
+git clone https://github.com/hall-lab/svtools
+cd svtools && python setup.py install
+cd $basedir
+rm -rf svtools
 
 cd $basedir
 git clone -b no-big-ci https://github.com/brentp/svtyper
 cd svtyper && python setup.py install
 cd $basedir
 rm -rf svtyper
+
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.3/mosdepth
 chmod +x /usr/local/bin/mosdepth
