@@ -18,7 +18,6 @@ import (
 	arg "github.com/alexflint/go-arg"
 	"github.com/biogo/biogo/io/seqio/fai"
 	"github.com/brentp/faidx"
-	"github.com/brentp/go-athenaeum/tempclean"
 	"github.com/brentp/smoove/shared"
 	"github.com/brentp/xopen"
 	"github.com/pkg/errors"
@@ -82,14 +81,15 @@ func Cnvnator(bam string, name string, fasta string, outDir string, bin int, exc
 	check(err)
 	check(t.Execute(&buf, ca))
 	// use a bash script so we don't get an error about command too long.
-	ft, err := tempclean.TempFile("", "cnvnator.sh")
+	ft, err := ioutil.TempFile("", "cnvnator.*.sh")
 	if err != nil {
 		return errors.Wrap(err, "error getting temp file")
 	}
+	defer os.Remove(ft.Name())
 	ft.Write(buf.Bytes())
 	check(ft.Close())
-	time.Sleep(100 * time.Millisecond)
-	p := exec.Command("bash " + ft.Name())
+	time.Sleep(1000 * time.Millisecond)
+	p := exec.Command("bash", ft.Name())
 	if err := p.Run(); err != nil {
 		return err
 	}
