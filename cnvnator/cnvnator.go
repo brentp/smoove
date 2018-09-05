@@ -3,7 +3,6 @@ package cnvnator
 import (
 	"bufio"
 	"bytes"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	arg "github.com/alexflint/go-arg"
@@ -24,10 +24,8 @@ import (
 )
 
 const cnvnator_cmd = ` 
-set -euo pipefail
+set -exuo pipefail
 cd {{.OutDir}}
-export REF_PATH=
-
 # split to make n chunks to use less mem.
 # use STDIN to get around https://github.com/abyzovlab/CNVnator/issues/101
 # this requires a specific branch of cnvnator: https://github.com/brentp/CNVnator/tree/stdin
@@ -57,6 +55,13 @@ type cnvargs struct {
 }
 
 func Cnvnator(bam string, name string, fasta string, outDir string, bin int, excludeChroms string) error {
+	fasta, err := filepath.Abs(fasta)
+	check(err)
+	outDir, err = filepath.Abs(outDir)
+	check(err)
+	bam, err = filepath.Abs(bam)
+	check(err)
+
 	fa, err := faidx.New(fasta)
 	if err != nil {
 		return errors.Wrap(err, "error opening fasta")
@@ -86,10 +91,14 @@ func Cnvnator(bam string, name string, fasta string, outDir string, bin int, exc
 		return errors.Wrap(err, "error getting temp file")
 	}
 	defer os.Remove(ft.Name())
-	ft.Write(buf.Bytes())
+	b := buf.Bytes()
+	_, err = ft.Write(b)
+	check(err)
 	check(ft.Close())
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	p := exec.Command("bash", ft.Name())
+	p.Stderr = os.Stderr
+	p.Stdout = os.Stdout
 	if err := p.Run(); err != nil {
 		return err
 	}
@@ -274,9 +283,9 @@ func split(fa *faidx.Faidx, n int, outdir string, excludeChroms []string) []stri
 		for k < len(seqs) && ktot < nper {
 			sp[i] += "'" + seqs[k].Name + "' "
 			ktot += seqs[k].Length
-			k += 1
+			k++
 		}
-		k += 1
+		k++
 		ktot = 0
 	}
 	return sp
@@ -291,7 +300,7 @@ type cliargs struct {
 }
 
 func Main() {
-	cli := cliargs{OutDir: "", ExcludeChroms: "hs37d5,~:,~^GL,~decoy"}
+	cli := cliargs{OutDir: "", ExcludeChroms: "hs37d5,~:,~^GL,~decoy,~random,~chrUn,~alt$"}
 	p := arg.MustParse(&cli)
 	if _, err := exec.LookPath("cnvnator"); err != nil {
 		p.Fail("cnvnator not found in path")
