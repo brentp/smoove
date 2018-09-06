@@ -30,7 +30,7 @@ cd {{.OutDir}}
 # use STDIN to get around https://github.com/abyzovlab/CNVnator/issues/101
 # this requires a specific branch of cnvnator: https://github.com/brentp/CNVnator/tree/stdin
 {{range .Chroms}}
-samtools view -T {{$.Reference}} -u {{$.Bam}} {{.}} | cnvnator -root {{$.Sample}}.root -chrom {{.}} -unique -tree
+samtools view -T {{$.Reference}} --input-fmt-option required_fields=511 -u {{$.Bam}} {{.}} | cnvnator -root {{$.Sample}}.root -chrom {{.}} -unique -tree
 {{end}}
 
 cnvnator -root {{.Sample}}.root -his {{.Bin}}
