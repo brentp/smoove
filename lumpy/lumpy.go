@@ -187,7 +187,7 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 			}
 			br, err := shared.NewReader(f.bam, 2, fasta)
 			check(err)
-			bams[i].stats = covstats.BamStats(br, 200000)
+			bams[i].stats = covstats.BamStats(br, 1000000)
 			bams[i].write_hist(outdir)
 		}
 		wg.Done()
@@ -289,6 +289,8 @@ func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 
 const BndSupportExtra = 2
 
+var excludeNonRef = os.Getenv("SMOOVE_KEEP_ALL") != "KEEP"
+
 func Main() {
 	if _, err := exec.LookPath("lumpy"); err != nil {
 		shared.Slogger.Fatal("lumpy executable not found in PATH")
@@ -312,7 +314,7 @@ func Main() {
 	vcf := bndFilter(ivcf, cli.Support+BndSupportExtra, cli.Fasta)
 
 	if cli.Genotype {
-		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, true, cli.RemovePr)
+		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, excludeNonRef, cli.RemovePr)
 	} else {
 		path := filepath.Join(cli.OutDir, cli.Name+"-smoove.vcf.gz")
 		_, wtr := bgzopen(path)
