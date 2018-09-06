@@ -285,7 +285,6 @@ func split(fa *faidx.Faidx, n int, outdir string, excludeChroms []string) []stri
 			ktot += seqs[k].Length
 			k++
 		}
-		k++
 		ktot = 0
 	}
 	return sp
