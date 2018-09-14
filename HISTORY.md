@@ -2,6 +2,7 @@ v0.1.11
 =======
 + flip start and end for small percent of cases where that's a problem
 + expose min sample weight to allow adjusting required support for each variant
++ **add [duphold](https://github.com/brentp/duphold)** annotations.
 
 v0.1.10
 ======= 

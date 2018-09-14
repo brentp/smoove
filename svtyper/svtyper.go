@@ -22,6 +22,7 @@ type cliargs struct {
 	OutDir    string   `arg:"-o,help:output directory."`
 	Fasta     string   `arg:"-f,required,help:fasta file."`
 	RemovePr  bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO."`
+	DupHold   bool     `arg:"-d,help:run duphold on output."`
 	Processes int      `arg:"-p,help:number of processors to use."`
 	VCF       string   `arg:"-v,required,help:vcf to genotype (use - for stdin)."`
 	Bams      []string `arg:"positional,required,help:path to bam to call."`
@@ -65,7 +66,7 @@ func writeTmp(header []string, lines []string) string {
 
 // Svtyper parellelizes genotyping of the vcf and writes the the writer.
 // p is optional. If set, then it is assumed that vcf is nil and the stdout of p will be used as the vcf.
-func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name string, excludeNonRef bool, removePR bool) {
+func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name string, excludeNonRef bool, removePR bool, duphold bool) {
 	b := bufio.NewReader(vcf)
 	header := make([]string, 0, 512)
 	lines := make([]string, 0, chunkSize+1)
@@ -122,17 +123,29 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
 		exRef = " -c 1"
 	}
-	if removePR {
-		var cmd string
-		if excludeNonRef {
-			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Ou | bcftools view -Oz %s -o %s && bcftools index --csi %s", reference, exRef, o, o)
-		} else {
-			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Oz -o %s && bcftools index --csi %s", reference, o, o)
-		}
-		psort = exec.Command("bash", "-c", cmd)
-	} else {
-		psort = exec.Command("bash", "-c", fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s && bcftools index --csi %s", reference, exRef, o, o))
+	var cmd string
+	var threads = runtime.GOMAXPROCS(0)
+	if threads > 4 {
+		threads = 4
 	}
+	if removePR {
+		if excludeNonRef {
+			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Ou | bcftools view -c 1 -Oz %s -o %s", reference, exRef, o)
+		} else {
+			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Oz -o %s", reference, o)
+		}
+	} else {
+		cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s", reference, exRef, o)
+	}
+	if duphold {
+		// duphold runs at the end after all the parallel output is sorted and index
+		for sample_i, bp := range bam_paths {
+			cmd += fmt.Sprintf("; mv %s %s.tmp.vcf.gz && rm -f %s.csi", o, o, o)
+			cmd += fmt.Sprintf("; duphold -t %d -v %s.tmp.vcf.gz -f %s -b %s -o %s -s %d", threads, o, reference, bp, o, sample_i)
+		}
+	}
+	cmd += fmt.Sprintf("; bcftools index --threads %d %s", threads, o)
+	psort = exec.Command("bash", "-c", cmd)
 	psort.Stderr = shared.Slogger
 	var err error
 	si, err = psort.StdinPipe()
@@ -228,5 +241,5 @@ func Main() {
 	check(err)
 	defer rdr.Close()
 	runtime.GOMAXPROCS(cli.Processes)
-	Svtyper(rdr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false, cli.RemovePr)
+	Svtyper(rdr, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, false, cli.RemovePr, cli.DupHold)
 }

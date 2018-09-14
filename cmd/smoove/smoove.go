@@ -45,10 +45,11 @@ smoove calls several programs. Those with 'Y' are found on your $PATH. Only thos
  *[{{tabix}}] tabix [ sort   ->  compress   -> (index)]
  *[{{lumpy}}] lumpy
  *[{{lumpy_filter}}] lumpy_filter
- *[{{samtools}}] samtools [only required for CRAM input]
+ *[{{samtools}}] samtools
+ *[{{svtyper}}] svtyper
+ *[{{mosdepth}}] mosdepth [extra filtering of split and discordant files for better scaling]
 
-  [{{mosdepth}}] mosdepth [extra filtering of split and discordant files for better scaling]
-  [{{svtyper}}] svtyper [required to genotype SV calls]
+  [{{duphold}}] duphold [(optional) annotate calls with depth changes]
   [{{svtools}}] svtools [only needed for large cohorts].
 
 Available sub-commands are below. Each can be run with -h for additional help.
@@ -64,6 +65,7 @@ Available sub-commands are below. Each can be run with -h for additional help.
 		"samtools":     shared.HasProg("samtools"),
 		"mosdepth":     shared.HasProg("mosdepth"),
 		"svtyper":      shared.HasProg("svtyper"),
+		"duphold":      shared.HasProg("duphold"),
 		"svtools":      shared.HasProg("svtools"),
 		"gsort":        shared.HasProg("gsort"),
 		"bgzip":        shared.HasProg("bgzip"),

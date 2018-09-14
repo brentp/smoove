@@ -38,7 +38,8 @@ type cliargs struct {
 	OutDir         string   `arg:"-o,help:output directory."`
 	NoExtraFilters bool     `arg:"-F,help:use lumpy_filter only without extra smoove filters."`
 	Support        int      `arg:"-S,help:mininum support required to report a variant."`
-	Genotype       bool     `arg:"-s,help:stream output to svtyper for genotyping"`
+	Genotype       bool     `arg:"help:stream output to svtyper for genotyping"`
+	DupHold        bool     `arg:"-d,help:run duphold on output. only works with --genotype"`
 	RemovePr       bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO (only used with --gentoype)."`
 	Bams           []string `arg:"positional,required,help:path to bam(s) to call."`
 }
@@ -187,7 +188,7 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 			}
 			br, err := shared.NewReader(f.bam, 2, fasta)
 			check(err)
-			bams[i].stats = covstats.BamStats(br, 1000000)
+			bams[i].stats = covstats.BamStats(br, 1250000)
 			bams[i].write_hist(outdir)
 		}
 		wg.Done()
@@ -314,7 +315,7 @@ func Main() {
 	vcf := bndFilter(ivcf, cli.Support+BndSupportExtra, cli.Fasta)
 
 	if cli.Genotype {
-		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, excludeNonRef, cli.RemovePr)
+		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, excludeNonRef, cli.RemovePr, cli.DupHold)
 	} else {
 		path := filepath.Join(cli.OutDir, cli.Name+"-smoove.vcf.gz")
 		_, wtr := bgzopen(path)
