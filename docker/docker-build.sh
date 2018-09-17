@@ -68,6 +68,10 @@ rm -rf svtyper
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.3/mosdepth
 chmod +x /usr/local/bin/mosdepth
+
+wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.0.3/duphold
+chmod +x /usr/local/bin/duphold
+
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
 chmod +x /usr/bin/gsort
 

@@ -139,9 +139,9 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	}
 	if duphold {
 		// duphold runs at the end after all the parallel output is sorted and index
-		for sample_i, bp := range bam_paths {
+		for _, bp := range bam_paths {
 			cmd += fmt.Sprintf("; mv %s %s.tmp.vcf.gz && rm -f %s.csi", o, o, o)
-			cmd += fmt.Sprintf("; duphold -t %d -v %s.tmp.vcf.gz -f %s -b %s -o %s -s %d", threads, o, reference, bp, o, sample_i)
+			cmd += fmt.Sprintf("; duphold -t %d -v %s.tmp.vcf.gz -f %s -b %s -o %s", threads, o, reference, bp, o)
 		}
 	}
 	cmd += fmt.Sprintf("; bcftools index --threads %d %s", threads, o)
