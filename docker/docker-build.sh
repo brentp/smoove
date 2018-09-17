@@ -28,11 +28,11 @@ rm -rf libdeflate
 git clone --recursive https://github.com/samtools/htslib.git
 git clone --recursive https://github.com/samtools/samtools.git
 git clone --recursive https://github.com/samtools/bcftools.git
-cd htslib && git checkout 5a062a4 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate
+cd htslib && git checkout 1.9 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate
 cd .. && make -j4 CFLAGS="-fPIC -O3" -C htslib install
 cd $basedir
 
-cd bcftools #&& git checkout 1.7
+cd bcftools && git checkout 1.9
 autoreconf && ./configure
 set +e
 make bcftools "PLUGINS_ENABLED=no" #
@@ -42,7 +42,7 @@ cp ./bcftools /usr/local/bin
 cd $basedir
 rm -rf bcftools
 
-cd samtools && git checkout 1.8
+cd samtools && git checkout 1.9
 autoreconf && ./configure && make -j2 CFLAGS='-fPIC -O3' install
 cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
