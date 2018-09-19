@@ -124,10 +124,6 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		exRef = " -c 1"
 	}
 	var cmd string
-	var threads = runtime.GOMAXPROCS(0)
-	if threads > 4 {
-		threads = 4
-	}
 	if removePR {
 		if excludeNonRef {
 			cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools annotate -x INFO/PRPOS,INFO/PREND -Ou | bcftools view -c 1 -Oz %s -o %s", reference, exRef, o)
@@ -138,13 +134,9 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s", reference, exRef, o)
 	}
 	if duphold {
-		// duphold runs at the end after all the parallel output is sorted and index
-		for _, bp := range bam_paths {
-			cmd += fmt.Sprintf("; mv %s %s.tmp.vcf.gz && rm -f %s.csi", o, o, o)
-			cmd += fmt.Sprintf("; duphold -t %d -v %s.tmp.vcf.gz -f %s -b %s -o %s", threads, o, reference, bp, o)
-		}
+		cmd += fmt.Sprintf("; smoove duphold -o %s.tmp.vcf.gz -v %s -f %s %s && mv %s.tmp.vcf.gz %s", o, reference, strings.Join(bam_paths, " "), o, o)
 	}
-	cmd += fmt.Sprintf("; bcftools index --threads %d %s", threads, o)
+	cmd += fmt.Sprintf("; bcftools index --threads %d %s", 3, o)
 	psort = exec.Command("bash", "-c", cmd)
 	psort.Stderr = shared.Slogger
 	var err error

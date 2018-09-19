@@ -9,6 +9,7 @@ import (
 	"github.com/brentp/smoove"
 	"github.com/brentp/smoove/annotate"
 	"github.com/brentp/smoove/cnvnator"
+	"github.com/brentp/smoove/duphold"
 	"github.com/brentp/smoove/hipstr"
 	"github.com/brentp/smoove/lumpy"
 	"github.com/brentp/smoove/merge"
@@ -33,6 +34,7 @@ var progs = []progPair{
 	progPair{"annotate", "annotate a VCF with gene and quality of SV call", annotate.Main},
 	progPair{"hipstr", "run hipSTR in parallel", hipstr.Main},
 	progPair{"cnvnator", "run cnvnator in parallel", cnvnator.Main},
+	progPair{"duphold", "run duphold in parallel (this can be done by adding a flag to call or genotype)", duphold.Main},
 }
 
 func Description() string {
