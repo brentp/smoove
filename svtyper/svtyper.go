@@ -117,7 +117,6 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	}
 	o := filepath.Join(outdir, name) + "-smoove.genotyped.vcf.gz"
 	shared.Slogger.Printf("writing sorted, indexed file to %s", o)
-	defer shared.Slogger.Printf("wrote sorted, indexed file to %s", o)
 	exRef := ""
 	if excludeNonRef {
 		shared.Slogger.Printf("excluding variants with all unknown or homozygous reference genotypes")
@@ -134,7 +133,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s", reference, exRef, o)
 	}
 	if duphold {
-		cmd += fmt.Sprintf("; smoove duphold -o %s.tmp.vcf.gz -v %s -f %s --bams %s && mv %s.tmp.vcf.gz %s", o, o, reference, strings.Join(bam_paths, " "), o, o)
+		cmd += fmt.Sprintf("; set -eu; smoove duphold -o %s.tmp.vcf.gz -v %s -f %s --bams %s && mv %s.tmp.vcf.gz %s", o, o, reference, strings.Join(bam_paths, " "), o, o)
 	}
 	cmd += fmt.Sprintf("; bcftools index --threads %d %s", 3, o)
 	psort = exec.Command("bash", "-c", cmd)
@@ -219,6 +218,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		check(si.Close())
 		check(psort.Wait())
 	}
+	shared.Slogger.Printf("wrote sorted, indexed file to %s", o)
 }
 
 const BndSupport = 6

@@ -41,20 +41,27 @@ func Main() {
 		close(ch)
 	}()
 
-	paths := make([]string, 0, len(cli.Bams)+8)
+	paths := make([]string, 0, len(cli.Bams))
 	ftype := "v"
 	if strings.HasSuffix(cli.OutVCF, "bcf") {
 		ftype = "b"
 	} else if strings.HasSuffix(cli.OutVCF, "vcf.gz") {
 		ftype = "z"
 	}
-	for _ = range cli.Bams {
-		t, err := tempclean.TempFile("", "smoove-duphold.bcf")
-		if err != nil {
-			panic(err)
+	if len(cli.Bams) == 1 {
+		// if only a single bam, use the outfile directly.
+		paths = append(paths, cli.OutVCF)
+	} else {
+		// for > 1 bams, use tmp bcf files.
+
+		for _ = range cli.Bams {
+			t, err := tempclean.TempFile("", "smoove-duphold.bcf")
+			if err != nil {
+				panic(err)
+			}
+			t.Close()
+			paths = append(paths, t.Name())
 		}
-		t.Close()
-		paths = append(paths, t.Name())
 	}
 
 	var t = "1"
@@ -86,15 +93,17 @@ func Main() {
 		}()
 	}
 	wg.Wait()
-	shared.Slogger.Printf("starting bcftools merge")
-	args := []string{"merge", "--force-samples", "--threads", "3", "-o", cli.OutVCF, "-O", ftype}
-	args = append(args, paths...)
+	if len(cli.Bams) > 1 {
+		shared.Slogger.Printf("starting bcftools merge")
+		args := []string{"merge", "--threads", "3", "-o", cli.OutVCF, "-O", ftype}
+		args = append(args, paths...)
 
-	cmd := exec.Command("bcftools", args...)
-	cmd.Stderr = shared.Slogger
-	cmd.Stdout = shared.Slogger
-	if err := cmd.Run(); err != nil {
-		tempclean.Fatalf("%s", err)
+		cmd := exec.Command("bcftools", args...)
+		cmd.Stderr = shared.Slogger
+		cmd.Stdout = shared.Slogger
+		if err := cmd.Run(); err != nil {
+			tempclean.Fatalf("%s", err)
+		}
 	}
-
+	shared.Slogger.Printf("finished duphold")
 }
