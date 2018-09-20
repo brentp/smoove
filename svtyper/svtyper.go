@@ -134,7 +134,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s", reference, exRef, o)
 	}
 	if duphold {
-		cmd += fmt.Sprintf("; smoove duphold -o %s.tmp.vcf.gz -v %s -f %s %s && mv %s.tmp.vcf.gz %s", o, reference, strings.Join(bam_paths, " "), o, o)
+		cmd += fmt.Sprintf("; smoove duphold -o %s.tmp.vcf.gz -v %s -f %s --bams %s && mv %s.tmp.vcf.gz %s", o, o, reference, strings.Join(bam_paths, " "), o, o)
 	}
 	cmd += fmt.Sprintf("; bcftools index --threads %d %s", 3, o)
 	psort = exec.Command("bash", "-c", cmd)
