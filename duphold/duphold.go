@@ -55,7 +55,7 @@ func Main() {
 		// for > 1 bams, use tmp bcf files.
 
 		for _ = range cli.Bams {
-			t, err := tempclean.TempFile("", "smoove-duphold.bcf")
+			t, err := tempclean.TempFile("dh", "smoove-duphold.bcf")
 			if err != nil {
 				panic(err)
 			}
@@ -103,6 +103,8 @@ func Main() {
 		cmd.Stdout = shared.Slogger
 		if err := cmd.Run(); err != nil {
 			tempclean.Fatalf("%s", err)
+		} else {
+			tempclean.Cleanup()
 		}
 	}
 	shared.Slogger.Printf("finished duphold")

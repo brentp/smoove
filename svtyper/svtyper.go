@@ -132,9 +132,6 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	} else {
 		cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s", reference, exRef, o)
 	}
-	if duphold {
-		cmd += fmt.Sprintf("; set -eu; smoove duphold -o %s.tmp.vcf.gz -v %s -f %s --bams %s && mv %s.tmp.vcf.gz %s", o, o, reference, strings.Join(bam_paths, " "), o, o)
-	}
 	cmd += fmt.Sprintf("; bcftools index --threads %d %s", 3, o)
 	psort = exec.Command("bash", "-c", cmd)
 	psort.Stderr = shared.Slogger
@@ -217,6 +214,28 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	if psort != nil {
 		check(si.Close())
 		check(psort.Wait())
+	}
+	if duphold {
+		args := []string{"duphold", "-o", o + ".tmp.vcf.gz", "-v", o, "-f", reference, "--bams"}
+		args = append(args, bam_paths...)
+		cmd := exec.Command("smoove", args...)
+		cmd.Stderr = shared.Slogger
+		cmd.Stdout = shared.Slogger
+		if err := cmd.Run(); err != nil {
+			tempclean.Fatalf(err.Error())
+		}
+		cmd = exec.Command("mv", o+".tmp.vcf.gz", o)
+		cmd.Stderr = shared.Slogger
+		cmd.Stdout = shared.Slogger
+		if err := cmd.Run(); err != nil {
+			tempclean.Fatalf(err.Error())
+		}
+		cmd = exec.Command("bcftools", "index", "--threads", "3", o)
+		cmd.Stderr = shared.Slogger
+		cmd.Stdout = shared.Slogger
+		if err := cmd.Run(); err != nil {
+			tempclean.Fatalf(err.Error())
+		}
 	}
 	shared.Slogger.Printf("wrote sorted, indexed file to %s", o)
 }
