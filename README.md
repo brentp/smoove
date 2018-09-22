@@ -47,6 +47,8 @@ docker run -it brentp/smoove smoove -h
 ```
 
 Or, you can download a `smoove` binary from here: https://github.com/brentp/smoove/releases
+When run without any arguments, `smoove` will show you which of it's dependencies it can find
+so you can adjust your $PATH and install accordingly.
 
 # usage
 
