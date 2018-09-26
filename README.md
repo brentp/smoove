@@ -13,16 +13,17 @@ of which are parallel by sample.
 It requires:
 
  + [lumpy and lumpy\_filter](https://github.com/arq5x/lumpy-sv)
+ + [samtools](https://github.com/samtools/samtools): for CRAM support
+ + [gsort](https://github.com/brentp/gsort): to sort final VCF
+ + [bgzip+tabix](https://github.com/samtools/htslib): to compress and index final VCF
 
  And optionally (but all highly recommended):
 
  + [svtyper](https://github.com/hall-lab/svtyper): to genotypes SVs
  + [svtools](https://github.com/hall-lab/svtools): required for large cohorts
- + [samtools](https://github.com/samtools/samtools): for CRAM support
- + [gsort](https://github.com/brentp/gsort): to sort final VCF
- + [bgzip+tabix](https://github.com/samtools/htslib): to compress and index final VCF
  + [mosdepth](https://github.com/brentp/mosdepth): remove high coverage regions.
  + [bcftools](https://github.com/samtools/bcftools): version 1.5 or higher for VCF indexing and filtering. 
+ + [duphold](https://github.com/brentp/duphold): to annotate depth changes within events and at the break-points.
 
  Running `smoove` without any arguments will show which of these are found so they can be added to the PATH as needed.
 
