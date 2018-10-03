@@ -1,3 +1,7 @@
+v0.2.1 (dev)
+============
++ fix bug in smoove duphold for samples > threads that resulted in stalling
+
 v0.2.0
 ======
 + **add [duphold](https://github.com/brentp/duphold)** annotations. (requires duphold v0.0.4)

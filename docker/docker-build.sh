@@ -3,8 +3,13 @@
 set -euo pipefail
 basedir=$(pwd)
 
+if [[ -e ./smoove ]]; then
 cp ./smoove /usr/local/bin
 chmod +x /usr/local/bin/smoove
+else
+    # TODO
+   
+fi
 
 # used by Dockerfile
 apt-get update

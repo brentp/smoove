@@ -349,17 +349,16 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 		shared.Slogger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
 	}
 
-	pch := make(chan []string, runtime.GOMAXPROCS(0))
+	pch := make(chan string, runtime.GOMAXPROCS(0))
 	var wg sync.WaitGroup
 
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		wg.Add(1)
 		go func() {
-			for pair := range pch {
+			for bamp := range pch {
 				// do the split and disc serially to use less memory since mosdepth uses ~ 1GB per sample.
-				remove_sketchy(pair[0], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
-				remove_sketchy(pair[1], maxdepth, fasta, fexclude, filter_chroms, extraFilters)
-				proc := exec.Command("bash", "-c", fmt.Sprintf("set -eu; samtools index %s && samtools index %s", pair[0], pair[1]))
+				remove_sketchy(bamp, maxdepth, fasta, fexclude, filter_chroms, extraFilters)
+				proc := exec.Command("bash", "-c", fmt.Sprintf("set -eu; samtools index %s", bamp))
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())
@@ -369,7 +368,10 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 	}
 
 	for _, b := range bams {
-		pch <- []string{b.disc, b.split}
+		pch <- b.disc
+	}
+	for _, b := range bams {
+		pch <- b.split
 	}
 	close(pch)
 

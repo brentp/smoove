@@ -88,8 +88,8 @@ func Main() {
 				if err := cmd.Run(); err != nil {
 					tempclean.Fatalf("%s", err)
 				}
+				wg.Done()
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()
