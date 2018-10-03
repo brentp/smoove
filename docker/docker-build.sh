@@ -8,7 +8,7 @@ cp ./smoove /usr/local/bin
 chmod +x /usr/local/bin/smoove
 else
     # TODO
-   
+    echo "NotImplemented"
 fi
 
 # used by Dockerfile
@@ -58,11 +58,6 @@ export HTSLIB_LIBRARY_DIR=/usr/local/lib
 export HTSLIB_INCLUDE_DIR=/usr/local/include
 pip install numpy pysam awscli cython toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip
 
-cd $basedir
-git clone https://github.com/hall-lab/svtools
-cd svtools && python setup.py install
-cd $basedir
-rm -rf svtools
 
 cd $basedir
 git clone -b no-big-ci https://github.com/brentp/svtyper
@@ -70,11 +65,16 @@ cd svtyper && python setup.py install
 cd $basedir
 rm -rf svtyper
 
+cd $basedir
+git clone https://github.com/hall-lab/svtools
+cd svtools && python setup.py install
+cd $basedir
+rm -rf svtools
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.3/mosdepth
 chmod +x /usr/local/bin/mosdepth
 
-wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.0.6/duphold
+wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.0.7/duphold
 chmod +x /usr/local/bin/duphold
 
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
