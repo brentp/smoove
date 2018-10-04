@@ -4,6 +4,9 @@ v0.2.1 (dev)
 + smoove is now more discerning about reads that are soft-clipped on both ends as
   these could be due to inversions. if a read is not flipped relative to its mate
   and it is soft-clipped on both ends, it is still removed.
++ in some cases reads with a large NM (mismatches) were not filtered because they
+  had an unexpected type (uint8). `smoove` now checks more types and for some bams
+  will remove more records which improves specificity.
 
 v0.2.0
 ======

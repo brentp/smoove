@@ -2,7 +2,6 @@ package lumpy
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -67,14 +66,19 @@ func abs(a int) int {
 
 func nm_above(r *sam.Record, max_mismatches int) bool {
 	if nm, ok := r.Tag([]byte{'N', 'M'}); ok {
-		if v, ok := nm.Value().(uint32); ok {
-			if v > uint32(max_mismatches) {
-				return true
-			}
-		} else if v, ok := nm.Value().(int32); ok {
-			if v > int32(max_mismatches) {
-				return true
-			}
+		nmv := nm.Value()
+		if v, ok := nmv.(uint32); ok {
+			return v > uint32(max_mismatches)
+		} else if v, ok := nmv.(int32); ok {
+			return v > int32(max_mismatches)
+		} else if v, ok := nmv.(uint8); ok {
+			return v > uint8(max_mismatches)
+		} else if v, ok := nmv.(int8); ok {
+			return v > int8(max_mismatches)
+		} else if v, ok := nmv.(int16); ok {
+			return v > int16(max_mismatches)
+		} else if v, ok := nmv.(uint16); ok {
+			return v > uint16(max_mismatches)
 		}
 	}
 	return false
@@ -359,9 +363,8 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 		wg.Add(1)
 		go func() {
 			for bamp := range pch {
-				// do the split and disc serially to use less memory since mosdepth uses ~ 1GB per sample.
 				remove_sketchy(bamp, maxdepth, fasta, fexclude, filter_chroms, extraFilters)
-				proc := exec.Command("bash", "-c", fmt.Sprintf("set -eu; samtools index %s", bamp))
+				proc := exec.Command("samtools", "index", bamp)
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())
