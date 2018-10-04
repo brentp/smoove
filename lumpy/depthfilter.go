@@ -105,7 +105,7 @@ func interOrDistant(r *sam.Record) bool {
 // 2. splitters where both end ops are soft-clips. e.g. discard 20S106M34S, but keep 87S123M
 // 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
 // 4. an interchromosomal with NM tag and NM > 3 is skipped.
-// 5. any read where both ends are soft clips of > 5 bases are skipped.
+// 5. any read where both ends are soft clips of > 5 bases are skipped provided that it does not look like an inversion
 // 6. any read where there are more than 5 mismatches.
 // 7. any read with mapq <= 50 and NM > 1 and an SA to a chrom other than the one for the Mate.
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
@@ -154,7 +154,10 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	// if flanked by 'S'and right side is > 5 bases
 	cig := r.Cigar
 	if cig[0].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Len() > 5 {
-		return true
+		// soft-clipping on both ends can happen with reads that span inversions so we add extra checks here.
+		if interOrDistant(r) || ((r.Flags&sam.Reverse != r.Flags&sam.MateReverse) || (r.Flags&sam.MateUnmapped != 0)) {
+			return true
+		}
 	}
 
 	if lowerQualWithSAToDifferentChrom(r) {

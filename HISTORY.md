@@ -1,6 +1,9 @@
 v0.2.1 (dev)
 ============
 + fix bug in smoove duphold for samples > threads that resulted in stalling
++ smoove is now more discerning about reads that are soft-clipped on both ends as
+  these could be due to inversions. if a read is not flipped relative to its mate
+  and it is soft-clipped on both ends, it is still removed.
 
 v0.2.0
 ======
