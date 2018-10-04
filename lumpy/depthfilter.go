@@ -91,12 +91,14 @@ func nm_above(r *sam.Record, max_mismatches int) bool {
 	if nmc <= max_mismatches {
 		return false
 	}
+	nEvents := 0
 	for _, cig := range r.Cigar {
 		if cig.Type() == sam.CigarInsertion || cig.Type() == sam.CigarDeletion {
+			nEvents += 1
 			nmc -= (cig.Len() - 1)
 		}
 	}
-	return nmc > max_mismatches
+	return nmc > max_mismatches || nEvents > 1
 }
 
 func lowerQualWithSAToDifferentChrom(r *sam.Record) bool {
