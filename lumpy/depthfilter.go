@@ -64,25 +64,39 @@ func abs(a int) int {
 	return -a
 }
 
-func nm_above(r *sam.Record, max_mismatches int) bool {
+func nm(r *sam.Record) int {
 	if nm, ok := r.Tag([]byte{'N', 'M'}); ok {
 		nmv := nm.Value()
 		if v, ok := nmv.(uint32); ok {
-			return v > uint32(max_mismatches)
+			return int(uint32(v))
 		} else if v, ok := nmv.(int32); ok {
-			return v > int32(max_mismatches)
+			return int(int32(v))
 		} else if v, ok := nmv.(uint8); ok {
-			return v > uint8(max_mismatches)
+			return int(uint8(v))
 		} else if v, ok := nmv.(int8); ok {
-			return v > int8(max_mismatches)
+			return int(int8(v))
 		} else if v, ok := nmv.(int16); ok {
-			return v > int16(max_mismatches)
+			return int(int16(v))
 		} else if v, ok := nmv.(uint16); ok {
-			return v > uint16(max_mismatches)
+			return int(uint16(v))
+
 		}
 	}
-	return false
+	return 0
 
+}
+func nm_above(r *sam.Record, max_mismatches int) bool {
+
+	nmc := nm(r)
+	if nmc <= max_mismatches {
+		return false
+	}
+	for _, cig := range r.Cigar {
+		if cig.Type() == sam.CigarInsertion || cig.Type() == sam.CigarDeletion {
+			nmc -= (cig.Len() - 1)
+		}
+	}
+	return nmc > max_mismatches
 }
 
 func lowerQualWithSAToDifferentChrom(r *sam.Record) bool {

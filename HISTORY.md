@@ -7,6 +7,9 @@ v0.2.1 (dev)
 + in some cases reads with a large NM (mismatches) were not filtered because they
   had an unexpected type (uint8). `smoove` now checks more types and for some bams
   will remove more records which improves specificity.
++ smoove will now be more conservative with `NM` counting. an insertion of 7 bases
+  is counted as an NM of 7. smoove will now correct this to an NM of 1 so it counts
+  the number of events rather than the number of bases of each event.
 
 v0.2.0
 ======
