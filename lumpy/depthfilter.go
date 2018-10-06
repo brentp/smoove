@@ -98,7 +98,7 @@ func nm_above(r *sam.Record, max_mismatches int) bool {
 			nmc -= (cig.Len() - 1)
 		}
 	}
-	return nmc > max_mismatches || nEvents > 1
+	return nmc > max_mismatches || nEvents > 2
 }
 
 func lowerQualWithSAToDifferentChrom(r *sam.Record) bool {
