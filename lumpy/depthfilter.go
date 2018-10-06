@@ -79,7 +79,8 @@ func nm(r *sam.Record) int {
 			return int(int16(v))
 		} else if v, ok := nmv.(uint16); ok {
 			return int(uint16(v))
-
+		} else {
+			shared.Slogger.Printf("bad NM type: %s was: %s", nmv, nm.Kind())
 		}
 	}
 	return 0
@@ -121,6 +122,26 @@ func interOrDistant(r *sam.Record) bool {
 	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 8000000)
 }
 
+// returns true if r has a mapq < 60 and any chrom in the r splitters matches any chrom in filter_chroms.
+func splitToExcludedChrom(r *sam.Record, filter_chroms []string) bool {
+	if r.MapQ >= 60 {
+		return false
+	}
+	tags, ok := r.Tag([]byte{'S', 'A'})
+	if !ok {
+		return false
+	}
+	atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+	for _, t := range atags {
+		pieces := bytes.Split(t, []byte{','})
+		if shared.Contains(filter_chroms, string(pieces[0])) {
+			return true
+		}
+
+	}
+	return false
+}
+
 // 1. interchromsomal discordant with an XA (maybe only with an XA that would be concordant)?
 // 2. splitters where both end ops are soft-clips. e.g. discard 20S106M34S, but keep 87S123M
 // 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
@@ -128,6 +149,7 @@ func interOrDistant(r *sam.Record) bool {
 // 5. any read where both ends are soft clips of > 5 bases are skipped provided that it does not look like an inversion
 // 6. any read where there are more than 5 mismatches.
 // 7. any read with mapq <= 50 and NM > 1 and an SA to a chrom other than the one for the Mate.
+// 8. any read with mapq < 60 and a splitter to an excluded chromosome.
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	if nm_above(r, 5) {
@@ -296,6 +318,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 			}
 			if !extraFilters {
 				check(bw.Write(rec))
+				continue
+			}
+			if splitToExcludedChrom(rec, filter_chroms) {
+				removed++
 				continue
 			}
 			if sketchyInterchromosomalOrSplit(rec) {
