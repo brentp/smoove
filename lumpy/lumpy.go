@@ -23,6 +23,7 @@ import (
 	"github.com/brentp/go-athenaeum/shpool"
 	"github.com/brentp/goleft/covstats"
 	"github.com/brentp/goleft/indexcov"
+	"github.com/brentp/smoove"
 	"github.com/brentp/smoove/shared"
 	"github.com/brentp/smoove/svtyper"
 	"github.com/brentp/xopen"
@@ -255,6 +256,7 @@ func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 					wb.WriteString(line)
 					if !contigsWritten {
 						writeContigs(wb, fasta)
+						wb.WriteString(fmt.Sprintf("##smoove_version=%s\n", smoove.Version))
 						contigsWritten = true
 					}
 
