@@ -224,12 +224,16 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		if err := cmd.Run(); err != nil {
 			tempclean.Fatalf(err.Error())
 		}
+
 		cmd = exec.Command("mv", o+".tmp.vcf.gz", o)
 		cmd.Stderr = shared.Slogger
 		cmd.Stdout = shared.Slogger
 		if err := cmd.Run(); err != nil {
 			tempclean.Fatalf(err.Error())
 		}
+
+		_ = os.Remove(o + ".tmp.vcf.gz.csi")
+
 		cmd = exec.Command("bcftools", "index", "--threads", "3", o)
 		cmd.Stderr = shared.Slogger
 		cmd.Stdout = shared.Slogger
