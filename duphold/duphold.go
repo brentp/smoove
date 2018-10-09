@@ -15,8 +15,9 @@ type cliargs struct {
 	Fasta     string   `arg:"-f,required,help:fasta file."`
 	VCF       string   `arg:"-v,required,help:path to input SV VCF"`
 	Processes int      `arg:"-p,help:number of threads ot use."`
+	SNPs      string   `arg:"-s,help:optional path to SNP/Indel VCF containing these samples for annotation with allele balance."`
 	OutVCF    string   `arg:"-o,required,help:path to output SV VCF"`
-	Bams      []string `arg:"required,help:path to sample bams"`
+	Bams      []string `arg:"positional,required,help:paths to sample BAM/CRAMs"`
 }
 
 type pair struct {
@@ -75,14 +76,18 @@ func Main() {
 	for i := 0; i < cli.Processes; i++ {
 		go func() {
 			for b := range ch {
-				sample_bcf := paths[b.i]
-				cmd := exec.Command("duphold", "-d", "-t", t, "-o", sample_bcf, "-f", cli.Fasta, "-b", b.bamPath, "-v", cli.VCF)
+				sampleBcf := paths[b.i]
+				args := []string{"-d", "-t", t, "-o", sampleBcf, "-f", cli.Fasta, "-b", b.bamPath, "-v", cli.VCF}
+				if cli.SNPs != "" {
+					args = append(args, []string{"-s", cli.SNPs}...)
+				}
+				cmd := exec.Command("duphold", args...)
 				cmd.Stderr = shared.Slogger
 				cmd.Stdout = shared.Slogger
 				if err := cmd.Run(); err != nil {
 					tempclean.Fatalf("%s", err)
 				}
-				cmd = exec.Command("bcftools", "index", "--csi", "--threads", t, sample_bcf)
+				cmd = exec.Command("bcftools", "index", "--csi", "--threads", t, sampleBcf)
 				cmd.Stderr = shared.Slogger
 				cmd.Stdout = shared.Slogger
 				if err := cmd.Run(); err != nil {
