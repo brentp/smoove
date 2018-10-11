@@ -72,6 +72,9 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	lines := make([]string, 0, chunkSize+1)
 	ch := make(chan string, runtime.GOMAXPROCS(0))
 
+	if !xopen.Exists(outdir) {
+		os.MkdirAll(outdir, 0755)
+	}
 	// read directly from the vcf (or process) and send off to a channel.
 	// svtyper will receive from that channel to allow for parallelization.
 	go func() {

@@ -97,13 +97,17 @@ func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 
 	f := filter{bam: bam, split: prefix + ".split.bam", disc: prefix + ".disc.bam", sample: sm}
 	// use .tmp.bam in case of error while running lumpy filter.
-	f.command = fmt.Sprintf("lumpy_filter -f %s %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", reference, bam, f.split, f.disc, 2, f.split, f.split, f.disc, f.disc)
+	f.command = fmt.Sprintf("set -eu; lumpy_filter -f %s %s %s.tmp.bam %s.tmp.bam %d && mv %s.tmp.bam %s && mv %s.tmp.bam %s", reference, bam, f.split, f.disc, 2, f.split, f.split, f.disc, f.disc)
+	f.command += fmt.Sprintf(" && cp %s %s.orig.bam && cp %s %s.orig.bam", f.split, f.split, f.disc, f.disc)
 	return f
 }
 
 func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool, minWeight int) *exec.Cmd {
 	if pool == nil {
 		pool = shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: shared.Prefix})
+	}
+	if !xopen.Exists(outdir) {
+		os.MkdirAll(outdir, 0755)
 	}
 	filters := make([]filter, len(bam_paths))
 	for i, p := range bam_paths {
@@ -118,7 +122,7 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, pool *s
 		panic(err)
 	}
 
-	remove_sketchy_all(filters, 800, reference, exclude_bed, filter_chroms, extraFilters)
+	remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms, extraFilters)
 	shared.Slogger.Print("starting lumpy")
 	p := run_lumpy(filters, reference, outdir, false, project, minWeight)
 	return p
@@ -187,9 +191,11 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 			if i%2 == mod {
 				continue
 			}
-			br, err := shared.NewReader(f.bam, 2, fasta)
+			var args = []string{"--input-fmt-option", "required_fields=506"}
+			br, err := shared.NewReader(f.bam, 2, fasta, args...)
 			check(err)
 			bams[i].stats = covstats.BamStats(br, 1250000)
+			br.Close()
 			bams[i].write_hist(outdir)
 		}
 		wg.Done()
