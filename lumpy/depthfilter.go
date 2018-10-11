@@ -103,7 +103,7 @@ func nm_above(r *sam.Record, max_mismatches int) bool {
 }
 
 func interOrDistant(r *sam.Record) bool {
-	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 8000000)
+	return (r.Ref.ID() != r.MateRef.ID()) || (abs(r.Pos-r.MatePos) > 8000000)
 }
 
 // check if the alignment has a splitter nearby.
@@ -117,28 +117,33 @@ func nearbySplitter(r *sam.Record) bool {
 	atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
 	for _, t := range atags {
 		pieces := bytes.Split(t, []byte{','})
-		if string(pieces[0]) != r.Ref.Name() && string(pieces[0]) != r.MateRef.Name() {
-			return false
+		if string(pieces[0]) != r.MateRef.Name() && string(pieces[0]) != r.Ref.Name() {
+			continue
 		}
 		pos, err := strconv.Atoi(string(pieces[1]))
 		if err != nil {
-			panic(err)
+			continue
 		}
-		if abs(pos-r.Start()) < 500 || abs(pos-r.End()) < 500 {
+		if abs(pos-r.MatePos) < 500 {
+			return true
+		}
+		if abs(pos-r.Start()) < 500 {
+			return true
+		}
+		if abs(pos-r.End()) < 500 {
 			return true
 		}
 	}
 	return false
 }
 
-// 1. any read with > 5 mismatches is removed. any interchromosomal with > 4 mismatches is discarded.
-// 2. any read with a splitter that lands within 500 bases is kept (this saves reads which completely span events from the filters below).
-// 3. an interchromosomal where > 35% of the read is soft-clipped is removed unless it has a splitter that goes near it's mate.
-// 4. reads where both end ops are soft-clips > 5 bases are discarded unless they look like inversions. e.g. discard 20S106M34S, but keep 87S123M
-// 5. reads with a splitter where both ends of the splitter are soft or hard-clipped are discarded.
+// 1. any read with > 6 mismatches is removed.
+// 2. any read with a splitter that goes to within 500 bases of itself or its mate is kept.
+// 3. any interchromosomal with > 4 mismatches is discarded.
+// 2. an interchromosomal where > 40% of the read is soft-clipped is removed
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
-	if nm_above(r, 5) {
+	if nm_above(r, 6) {
 		return true
 	}
 	if nearbySplitter(r) {
@@ -148,69 +153,9 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 		if nm_above(r, 4) {
 			return true
 		}
-
-		// skip inter-chrom with >XX% soft if no SA
-		if s := softMatchCount(r); s.pSkip() > 0.35 {
-			tags, ok := r.Tag([]byte{'S', 'A'})
-			if !ok {
-				return true
-			}
-			hasSpl := false
-			// look for splitter to matechrom
-			if tags[0] != 'S' && tags[1] != 'A' {
-				panic("expected SA tag")
-			}
-			atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
-			for _, t := range atags {
-				pieces := bytes.Split(t, []byte{','})
-				if string(pieces[0]) != r.MateRef.Name() {
-					continue
-				}
-				pos, err := strconv.Atoi(string(pieces[1]))
-				if err != nil {
-					continue
-				}
-				if abs(pos-r.MatePos) < 1000 {
-					hasSpl = true
-					break
-				}
-			}
-			if !hasSpl {
-				return true
-			}
-		}
-
-	}
-	// if flanked by 'S'and right side is > 5 bases
-	cig := r.Cigar
-	if cig[0].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Len() > 5 {
-		// soft-clipping on both ends can happen with reads that span inversions so we add extra checks here.
-		return interOrDistant(r) || ((r.Flags&sam.Reverse != r.Flags&sam.MateReverse) || (r.Flags&sam.MateUnmapped != 0))
-	}
-
-	// splitter flanked by 'S'
-	if tags, ok := r.Tag([]byte{'S', 'A'}); ok {
-		atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
-		if len(atags) > 1 {
+		// skip inter-chrom with >XX% soft if no SA (checked above in nearby splitter)
+		if s := softMatchCount(r); s.pSkip() > 0.40 {
 			return true
-		}
-		for _, t := range atags {
-			// things with a splitter that starts and ends with 'S' are bad
-			pieces := bytes.Split(t, []byte{','})
-			cigar := string(pieces[3])
-			if end := cigar[len(cigar)-1]; end != 'S' && end != 'H' {
-				continue
-			}
-			var first rune
-			for _, first = range cigar {
-				if '0' <= first && first <= '9' {
-					continue
-				}
-				break
-			}
-			if first == 'S' || first == 'H' {
-				return true
-			}
 		}
 	}
 	return false
