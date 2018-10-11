@@ -219,7 +219,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 		check(psort.Wait())
 	}
 	if duphold {
-		args := []string{"duphold", "-o", o + ".tmp.vcf.gz", "-v", o, "-f", reference, "--bams"}
+		args := []string{"duphold", "-o", o + ".tmp.vcf.gz", "-v", o, "-f", reference}
 		args = append(args, bam_paths...)
 		cmd := exec.Command("smoove", args...)
 		cmd.Stderr = shared.Slogger
