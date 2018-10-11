@@ -366,7 +366,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
 		badInter, tot, pct, filepath.Base(fbam))
 
-	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"))
+	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"), tot)
 
 }
 
@@ -424,7 +424,7 @@ func cp(dst, src string) error {
 	return d.Close()
 }
 
-func singletonfilter(fbam string, split bool) {
+func singletonfilter(fbam string, split bool, originalCount int) {
 
 	t0 := time.Now()
 
@@ -490,5 +490,7 @@ func singletonfilter(fbam string, split bool) {
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)
-	shared.Slogger.Printf("removed %d singletons of %d reads (%.2f%%) from %s in %.0f seconds leaving %d reads", removed, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds(), nwritten)
+	shared.Slogger.Printf("removed %d singletons of %d reads (%.2f%%) from %s in %.0f seconds", removed, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds())
+	pct = 100 * float64(nwritten) / float64(originalCount)
+	shared.Slogger.Printf("%d reads (%.2f%%) of the original %d remain from %s", nwritten, pct, originalCount, filepath.Base(f.Name()))
 }
