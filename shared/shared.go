@@ -64,7 +64,7 @@ func (r *reader) Close() error {
 }
 
 // NewReader returns a bam.Reader from any path that samtools can read.
-func NewReader(path string, rd int, fasta string) (*bam.Reader, error) {
+func NewReader(path string, rd int, fasta string, args ...string) (*bam.Reader, error) {
 	var rdr io.Reader
 	if strings.HasSuffix(path, ".bam") {
 		var err error
@@ -74,7 +74,9 @@ func NewReader(path string, rd int, fasta string) (*bam.Reader, error) {
 		}
 
 	} else {
-		cmd := exec.Command("samtools", "view", "-T", fasta, "-u", path)
+		vargs := []string{"view", "-T", fasta, "-u", path}
+		vargs = append(vargs, args...)
+		cmd := exec.Command("samtools", vargs...)
 		cmd.Stderr = Slogger
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {

@@ -102,64 +102,49 @@ func nm_above(r *sam.Record, max_mismatches int) bool {
 	return nmc > max_mismatches || nEvents > 2
 }
 
-func lowerQualWithSAToDifferentChrom(r *sam.Record) bool {
-	if r.MapQ > 50 {
-		return false
-	}
-	t, hasSA := r.Tag([]byte{'S', 'A'})
-	if !hasSA {
-		return false
-	}
-	if !strings.HasPrefix(string(t), r.MateRef.Name()+",") {
-		if nm_above(r, 1) {
-			return true
-		}
-	}
-	return false
-}
-
 func interOrDistant(r *sam.Record) bool {
 	return (r.Ref.ID() != r.MateRef.ID() && r.MateRef.ID() != -1) || (r.MateRef.ID() != -1 && r.Ref.ID() == r.MateRef.ID() && abs(r.Pos-r.MatePos) > 8000000)
 }
 
-// returns true if r has a mapq < 60 and any chrom in the r splitters matches any chrom in filter_chroms.
-func splitToExcludedChrom(r *sam.Record, filter_chroms []string) bool {
-	if r.MapQ >= 60 {
-		return false
-	}
+// check if the alignment has a splitter nearby.
+// useful for checking when small tandem dups of more than 3 copies
+// are encompassed in a read.
+func nearbySplitter(r *sam.Record) bool {
 	tags, ok := r.Tag([]byte{'S', 'A'})
 	if !ok {
 		return false
 	}
-	atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+	atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
 	for _, t := range atags {
 		pieces := bytes.Split(t, []byte{','})
-		if shared.Contains(filter_chroms, string(pieces[0])) {
+		if string(pieces[0]) != r.Ref.Name() && string(pieces[0]) != r.MateRef.Name() {
+			return false
+		}
+		pos, err := strconv.Atoi(string(pieces[1]))
+		if err != nil {
+			panic(err)
+		}
+		if abs(pos-r.Start()) < 500 || abs(pos-r.End()) < 500 {
 			return true
 		}
-
 	}
 	return false
 }
 
-// 1. interchromsomal discordant with an XA (maybe only with an XA that would be concordant)?
-// 2. splitters where both end ops are soft-clips. e.g. discard 20S106M34S, but keep 87S123M
-// 3. an interchromosomal where > 35% of the read is soft-clipped must have a splitter that goes to the same location as the other end.
-// 4. an interchromosomal with NM tag and NM > 3 is skipped.
-// 5. any read where both ends are soft clips of > 5 bases are skipped provided that it does not look like an inversion
-// 6. any read where there are more than 5 mismatches.
-// 7. any read with mapq <= 50 and NM > 1 and an SA to a chrom other than the one for the Mate.
-// 8. any read with mapq < 60 and a splitter to an excluded chromosome.
+// 1. any read with > 5 mismatches is removed. any interchromosomal with > 4 mismatches is discarded.
+// 2. any read with a splitter that lands within 500 bases is kept (this saves reads which completely span events from the filters below).
+// 3. an interchromosomal where > 35% of the read is soft-clipped is removed unless it has a splitter that goes near it's mate.
+// 4. reads where both end ops are soft-clips > 5 bases are discarded unless they look like inversions. e.g. discard 20S106M34S, but keep 87S123M
+// 5. reads with a splitter where both ends of the splitter are soft or hard-clipped are discarded.
 // NOTE: "interchromosomal" here includes same chrom with end > 8MB away.
 func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	if nm_above(r, 5) {
 		return true
 	}
+	if nearbySplitter(r) {
+		return false
+	}
 	if interOrDistant(r) {
-		// skip interchromosomal with XA
-		if _, ok := r.Tag([]byte{'X', 'A'}); ok {
-			return true
-		}
 		if nm_above(r, 4) {
 			return true
 		}
@@ -172,7 +157,10 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 			}
 			hasSpl := false
 			// look for splitter to matechrom
-			atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+			if tags[0] != 'S' && tags[1] != 'A' {
+				panic("expected SA tag")
+			}
+			atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
 			for _, t := range atags {
 				pieces := bytes.Split(t, []byte{','})
 				if string(pieces[0]) != r.MateRef.Name() {
@@ -197,24 +185,17 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	cig := r.Cigar
 	if cig[0].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Type() == sam.CigarSoftClipped && cig[len(cig)-1].Len() > 5 {
 		// soft-clipping on both ends can happen with reads that span inversions so we add extra checks here.
-		if interOrDistant(r) || ((r.Flags&sam.Reverse != r.Flags&sam.MateReverse) || (r.Flags&sam.MateUnmapped != 0)) {
-			return true
-		}
-	}
-
-	if lowerQualWithSAToDifferentChrom(r) {
-		return true
+		return interOrDistant(r) || ((r.Flags&sam.Reverse != r.Flags&sam.MateReverse) || (r.Flags&sam.MateUnmapped != 0))
 	}
 
 	// splitter flanked by 'S'
-	// TODO: require 5 bases.
 	if tags, ok := r.Tag([]byte{'S', 'A'}); ok {
-		atags := bytes.Split(tags[:len(tags)-1], []byte{';'})
+		atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
 		if len(atags) > 1 {
-			return false
+			return true
 		}
 		for _, t := range atags {
-			// skip things with a splitter that starts and ends with 'S'
+			// things with a splitter that starts and ends with 'S' are bad
 			pieces := bytes.Split(t, []byte{','})
 			cigar := string(pieces[3])
 			if end := cigar[len(cigar)-1]; end != 'S' && end != 'H' {
@@ -227,10 +208,9 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 				}
 				break
 			}
-			if first != 'S' && first != 'H' {
-				continue
+			if first == 'S' || first == 'H' {
+				return true
 			}
-			return true
 		}
 	}
 	return false
@@ -294,6 +274,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	var rmLast bool
 
 	removed, tot := 0, 0
+	lowMQ := 0
 	badInter := 0
 	for {
 		rec, err := br.Read()
@@ -301,6 +282,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 			tot += 1
 			rchrom := rec.Ref.Name()
 			if rec.MapQ < MinMapQuality {
+				lowMQ++
 				removed++
 				continue
 			}
@@ -315,18 +297,6 @@ rm {{prefix}}.quantized.bed.gz.csi
 					removed++
 					continue
 				}
-			}
-			if !extraFilters {
-				check(bw.Write(rec))
-				continue
-			}
-			if splitToExcludedChrom(rec, filter_chroms) {
-				removed++
-				continue
-			}
-			if sketchyInterchromosomalOrSplit(rec) {
-				badInter++
-				continue
 			}
 
 			// block to check if it's in filter chroms
@@ -359,6 +329,14 @@ rm {{prefix}}.quantized.bed.gz.csi
 				removed++
 				continue
 			}
+			if !extraFilters {
+				check(bw.Write(rec))
+				continue
+			}
+			if sketchyInterchromosomalOrSplit(rec) {
+				badInter++
+				continue
+			}
 			check(bw.Write(rec))
 
 		}
@@ -380,14 +358,14 @@ rm {{prefix}}.quantized.bed.gz.csi
 	}
 
 	pct := float64(removed) / float64(tot) * 100
-	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) with depth > %d or from excluded chroms from %s in %.0f seconds\n",
+	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) with low mapq, depth > %d, or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
+	//shared.Slogger.Printf("of those, %d were removed due to low mapping quality\n", lowMQ)
+
 	pct = float64(badInter) / float64(tot) * 100
 	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
 		badInter, tot, pct, filepath.Base(fbam))
 
-	// TODO move first pass in singletonfilter that counts read names into the functon above as the reads are written.
-	// this will avoid 1 pass on each bam.
 	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"))
 
 }
@@ -484,6 +462,7 @@ func singletonfilter(fbam string, split bool) {
 	check(err)
 
 	tot, removed := 0, 0
+	nwritten := 0
 	for {
 		rec, err := br.Read()
 		// skip any singleton read as long as it's not a splitter.
@@ -498,6 +477,7 @@ func singletonfilter(fbam string, split bool) {
 				continue
 			}
 			check(bw.Write(rec))
+			nwritten++
 		}
 
 		if err == io.EOF {
@@ -510,5 +490,5 @@ func singletonfilter(fbam string, split bool) {
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)
-	shared.Slogger.Printf("removed %d singletons out of %d reads (%.2f%%) from %s in %.0f seconds", removed, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds())
+	shared.Slogger.Printf("removed %d singletons of %d reads (%.2f%%) from %s in %.0f seconds leaving %d reads", removed, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds(), nwritten)
 }
