@@ -1,5 +1,5 @@
-v0.2.1 (dev)
-============
+v0.2.1
+======
 + fix bug in smoove duphold for samples > threads that resulted in stalling
 + smoove is now more discerning about reads that are soft-clipped on both ends as
   these could be due to inversions. if a read is not flipped relative to its mate
@@ -10,7 +10,7 @@ v0.2.1 (dev)
 + smoove will now be more conservative with `NM` counting. an insertion of 7 bases
   is counted as an NM of 7. smoove will now correct this to an NM of 1 so it counts
   the number of events rather than the number of bases of each event.
-+ simplify rules fr filtering.
++ simplify rules for filtering and make them less strict.
 
 v0.2.0
 ======
