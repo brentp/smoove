@@ -182,6 +182,10 @@ func cnvnatorToBedPe(sample, outdir string, fasta string) {
 	check(err)
 	defer f.Close()
 
+	ffilt, err := os.Create(outdir + "/" + sample + ".filtered.cnvnator")
+	check(err)
+	defer ffilt.Close()
+
 	delf, err := os.Create(outdir + "/" + sample + ".del.bedpe")
 	check(err)
 	defer delf.Close()
@@ -207,6 +211,18 @@ func cnvnatorToBedPe(sample, outdir string, fasta string) {
 		check(err)
 
 		c := cnvFromLine(line, i)
+		var end = c.end
+		if end >= fa.Index[c.chrom].Length {
+			end = fa.Index[c.chrom].Length - 1
+		}
+		if cseq, err := fa.Get(c.chrom, c.start, end); err != nil {
+			check(err)
+		} else if float64(strings.Count(cseq, "N")) > 0.1*float64(c.end-c.start) {
+			continue
+		}
+		if _, err := ffilt.WriteString(line); err != nil {
+			log.Fatal(err)
+		}
 		// filter on proportion of mapq 0 reads.
 		if c.q0 < 0 || c.q0 > 0.5 {
 			continue
