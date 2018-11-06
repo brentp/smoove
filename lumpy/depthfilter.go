@@ -432,6 +432,8 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 	}
 	check(bw.Close())
 	check(br.Close())
+	_ = f.Close()
+	_ = fw.Close()
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)

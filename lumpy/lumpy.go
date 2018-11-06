@@ -194,7 +194,13 @@ func bam_stats(bams []filter, fasta string, outdir string) {
 			var args = []string{"--input-fmt-option", "required_fields=506"}
 			br, err := shared.NewReader(f.bam, 2, fasta, args...)
 			check(err)
-			bams[i].stats = covstats.BamStats(br, 1250000)
+			bams[i].stats = covstats.BamStats(br, 1250000, 100000)
+			if bams[i].stats.MaxReadLength == 0 {
+				br.Close()
+				br, err = shared.NewReader(f.bam, 2, fasta, args...)
+				check(err)
+				bams[i].stats = covstats.BamStats(br, 1250000, 0)
+			}
 			br.Close()
 			bams[i].write_hist(outdir)
 		}
