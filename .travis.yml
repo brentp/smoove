@@ -10,12 +10,13 @@ os:
 
 go:
   - 1.9
-  - '1.10'
+  - 1.10.x
+  - 1.11.x
 
 before_install:
   - go get ./...
   - go build cmd/smoove/smoove.go
-  - docker pull brentp/smoove
+  - docker pull brentp/smoove:dev
 
 script:
-  - docker run -v `pwd`:/work/ -it brentp/smoove ./tests/functional-tests.sh
+  - docker run -v `pwd`:/work/ -it brentp/smoove:dev ./tests/functional-tests.sh
