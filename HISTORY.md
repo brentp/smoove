@@ -11,6 +11,7 @@ v0.2.2
   `export SMOOVE_NO_MAX_CI=xx` # any value will work; however, it's higly recommended
   to use as-is.
 + cnvnator changes and filtering. (still requires github.com/brentp/CNVnator fork).
++ bugfix for case when no output directory was specified.
 
 v0.2.1
 ======
