@@ -169,7 +169,12 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 				t, err := tempclean.TempFile("", "smoove-svtyper-tmp-")
 				check(err)
 				t.Close()
-				p := exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "25000", "-T", reference, "-l", lib, "-o", t.Name())
+				var p *exec.Cmd
+				if os.Getenv("SMOOVE_NO_MAX_CI") == "" {
+					p = exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "50000", "-T", reference, "-l", lib, "-o", t.Name(), "--max_ci_dist", "0")
+				} else {
+					p = exec.Command("svtyper", "-i", f, "-B", strings.Join(bam_paths, ","), "--max_reads", "50000", "-T", reference, "-l", lib, "-o", t.Name())
+				}
 				p.Stderr = shared.Slogger
 				p.Stdout = shared.Slogger
 				check(p.Run())

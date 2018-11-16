@@ -3,6 +3,8 @@ FROM ubuntu:16.04
 COPY docker-build.sh .
 COPY ./smoove .
 
-RUN bash -x docker-build.sh
+RUN touch asdf.xxx
+RUN bash docker-build.sh
+RUN rm -f asdf.xxx
 
 WORKDIR /work/

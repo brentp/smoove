@@ -51,6 +51,22 @@ cd samtools && git checkout 1.9
 autoreconf && ./configure && make -j2 CFLAGS='-fPIC -O3' install
 cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
+## CNVNATOR
+apt-get -qy install libroot-math-mathmore-dev
+rm -rf /var/lib/apt/lists/*
+export CPLUS_INCLUDE_PATH=/usr/include/root/
+
+cd $basedir
+git clone --depth 1 -b stdin https://github.com/brentp/CNVnator
+cd CNVnator
+ln -s $basedir/samtools/ .
+ln -s $basedir/htslib/ .
+make -j4 HTSDIR=htslib/ LIBS="-llzma -lbz2 -lz -lcurl -lssl -lcrypto -ldeflate"
+
+cp ./cnvnator /usr/local/bin
+cd $basedir
+rm -rf CNVnator
+
 wget -qO /usr/bin/batchit https://github.com/base2genomics/batchit/releases/download/v0.4.2/batchit
 chmod +x /usr/bin/batchit
 
@@ -58,9 +74,8 @@ export HTSLIB_LIBRARY_DIR=/usr/local/lib
 export HTSLIB_INCLUDE_DIR=/usr/local/include
 pip install numpy pysam awscli cython toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip
 
-
 cd $basedir
-git clone -b no-big-ci https://github.com/brentp/svtyper
+git clone https://github.com/hall-lab/svtyper
 cd svtyper && python setup.py install
 cd $basedir
 rm -rf svtyper
@@ -92,6 +107,4 @@ cd $basedir
 
 rm -rf lumpy-sv
 
-ldconfig
-
-rm -rf /var/lib/apt/lists/*
+echo "done"

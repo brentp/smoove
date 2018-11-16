@@ -1,3 +1,17 @@
+v0.2.2
+======
++ huge reduction in number of discordant reads sent to lumpy for some problematic samples.
+  this is work by @ernfrid which reduces lumpy runtime for all cases and dramatically lowers
+  it for cases that were previously problematic due to large numbers of discordant reads.
+  On our Genome in a Bottle test sample, this **drops the number of discordant reads
+  from 1,434,810 to 332,384; a 4.3 fold reduction** while leaving the final smoove output unchanged
+  except for 2 BNDs that were removed. This reduction in reads will be even more dramatic
+  in problematic samples.
++ switch to use svtyper>=0.7.0 with `--max_ci_dist` parameter. To avoid this set: 
+  `export SMOOVE_NO_MAX_CI=xx` # any value will work; however, it's higly recommended
+  to use as-is.
++ cnvnator changes and filtering. (still requires github.com/brentp/CNVnator fork).
+
 v0.2.1
 ======
 + fix bug in smoove duphold for samples > threads that resulted in stalling
