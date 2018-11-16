@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -369,6 +371,88 @@ func cp(dst, src string) error {
 	return d.Close()
 }
 
+type inter struct {
+	read1_tid uint32
+	read2_tid uint32
+	read1_pos uint32
+	read2_pos uint32
+	qname string
+	retain bool
+}
+
+// Size around an interchromosomal to look for support during filtering
+const inter_window_size = 10000
+const empty_tid = math.MaxUint32
+
+func localRightOutOfWindow(i, k inter) bool {
+	return (k.read1_tid > i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos > i.read1_pos + inter_window_size))
+}
+
+func localLeftOutOfWindow(i, k inter) bool {
+	return (k.read1_tid < i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos < i.read1_pos - inter_window_size))
+}
+
+func distantRightOutOfWindow(i, k inter) bool {
+	return (k.read2_tid > i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos > i.read2_pos + inter_window_size))
+}
+
+func distantLeftOutOfWindow(i, k inter) bool {
+	return (k.read2_tid < i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos < i.read2_pos - inter_window_size))
+}
+
+func interSlicePtrs(s []inter, d []*inter) []*inter {
+	for i := 0; i < len(s); i++ {
+		d = append(d, &s[i])
+	}
+	return d
+}
+
+func interchromfilter(counts map[string]int, inters []inter) {
+	buf := make([]*inter, 0, len(inters))
+	for f := 0; f < len(inters); {
+		g := sort.Search(len(inters), func(z int) bool { return localRightOutOfWindow(inters[f], inters[z]) })
+		// now we know that everything between first and g is in-window relative to first
+		if f + 1 != g {
+			// Need to check and see if in-window on distal site
+			// populate buf with pointers to elements so we don't mess up the initial array
+			buf = buf[:0]
+			buf = interSlicePtrs(inters[f:g], buf)
+			sort.SliceStable(buf, func(i, j int) bool {
+				switch {
+				case buf[i].read2_tid < buf[j].read2_tid:
+					return true
+				case buf[i].read2_tid > buf[j].read2_tid:
+					return false
+				}
+				return buf[i].read2_pos < buf[j].read2_pos
+			})
+			for j := 0; j < len(buf); {
+				c := sort.Search(len(buf), func(z int) bool { return distantRightOutOfWindow(*buf[j], *buf[z]) })
+				if j + 1 != c {
+					for i := j; i < c; i++ {
+						buf[i].retain = true
+					}
+				}
+				if c < len(buf) {
+					j = sort.Search(len(buf), func(z int) bool { return !distantLeftOutOfWindow(*buf[c], *buf[z]) })
+				} else {
+					j = c
+				}
+			}
+		}
+		if g < len(inters) {
+			f = sort.Search(len(inters), func(z int) bool { return !localLeftOutOfWindow(inters[g], inters[z]) })
+		} else {
+			f = g
+		}
+	}
+	for _, x := range inters {
+		if !x.retain {
+			counts[x.qname]--
+		}
+	}
+}
+
 func singletonfilter(fbam string, split bool, originalCount int) {
 
 	t0 := time.Now()
@@ -380,6 +464,8 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 	check(err)
 
 	counts := make(map[string]int, 100)
+	inters := make([]inter, 0, 100)
+	last := inter{read1_tid: empty_tid}
 
 	for {
 		rec, err := br.Read()
@@ -388,6 +474,22 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 			if split {
 				// split sets first letter to A or B. Here we normalize.
 				name = "A" + name[1:]
+			} else {
+				// Eliminate interchromosomal reads are orphaned. i.e. there
+				// aren't other nearby reads that could be signaling an SV.
+				// Note that this only applies to discordants, not splitters.
+				if interOrDistant(rec) {
+					cur := inter{read1_tid: uint32(rec.Ref.ID()), read2_tid: uint32(rec.MateRef.ID()), read1_pos: uint32(rec.Pos), read2_pos: uint32(rec.MatePos), qname: name}
+					if last.read1_tid == empty_tid || localRightOutOfWindow(last, cur) {
+						if len(inters) != 0 {
+							interchromfilter(counts, inters)
+							// Clear our buffer
+							inters = inters[:0]
+						}
+					}
+					inters = append(inters, cur)
+					last = cur
+				}
 			}
 			counts[name]++
 		}
@@ -396,6 +498,7 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 		}
 		check(err)
 	}
+	interchromfilter(counts, inters)
 
 	f.Seek(0, os.SEEK_SET)
 	br, err = bam.NewReader(f, 1)
@@ -417,7 +520,7 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 			if split {
 				name = "A" + name[1:]
 			}
-			if counts[name] == 1 {
+			if counts[name] < 2 {
 				removed++
 				continue
 			}
@@ -437,7 +540,11 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 
 	check(os.Rename(fw.Name(), f.Name()))
 	pct := 100 * float64(removed) / float64(tot)
-	shared.Slogger.Printf("removed %d singletons of %d reads (%.2f%%) from %s in %.0f seconds", removed, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds())
+	var additional string
+	if !split {
+		additional = "and isolated interchromosomals "
+	}
+	shared.Slogger.Printf("removed %d singletons %sof %d reads (%.2f%%) from %s in %.0f seconds", removed, additional, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds())
 	pct = 100 * float64(nwritten) / float64(originalCount)
 	shared.Slogger.Printf("%d reads (%.2f%%) of the original %d remain from %s", nwritten, pct, originalCount, filepath.Base(f.Name()))
 }
