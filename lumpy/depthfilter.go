@@ -182,7 +182,7 @@ export MOSDEPTH_Q0=OK
 export MOSDEPTH Q1=HIGH
 set -euo pipefail
 samtools index {{bam}}
-mosdepth -f {{fasta}} -n --quantize {{md1}}: {{prefix}} {{bam}}
+mosdepth -f {{fasta}} --fast-mode -n --quantize {{md1}}: {{prefix}} {{bam}}
 rm -f {{prefix}}.mosdepth*.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
 `
@@ -376,8 +376,8 @@ type inter struct {
 	read2_tid uint32
 	read1_pos uint32
 	read2_pos uint32
-	qname string
-	retain bool
+	qname     string
+	retain    bool
 }
 
 // Size around an interchromosomal to look for support during filtering
@@ -385,19 +385,19 @@ const inter_window_size = 10000
 const empty_tid = math.MaxUint32
 
 func localRightOutOfWindow(i, k inter) bool {
-	return (k.read1_tid > i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos > i.read1_pos + inter_window_size))
+	return (k.read1_tid > i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos > i.read1_pos+inter_window_size))
 }
 
 func localLeftOutOfWindow(i, k inter) bool {
-	return (k.read1_tid < i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos < i.read1_pos - inter_window_size))
+	return (k.read1_tid < i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos < i.read1_pos-inter_window_size))
 }
 
 func distantRightOutOfWindow(i, k inter) bool {
-	return (k.read2_tid > i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos > i.read2_pos + inter_window_size))
+	return (k.read2_tid > i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos > i.read2_pos+inter_window_size))
 }
 
 func distantLeftOutOfWindow(i, k inter) bool {
-	return (k.read2_tid < i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos < i.read2_pos - inter_window_size))
+	return (k.read2_tid < i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos < i.read2_pos-inter_window_size))
 }
 
 func interSlicePtrs(s []inter, d []*inter) []*inter {
@@ -412,7 +412,7 @@ func interchromfilter(counts map[string]int, inters []inter) {
 	for f := 0; f < len(inters); {
 		g := sort.Search(len(inters), func(z int) bool { return localRightOutOfWindow(inters[f], inters[z]) })
 		// now we know that everything between first and g is in-window relative to first
-		if f + 1 != g {
+		if f+1 != g {
 			// Need to check and see if in-window on distal site
 			// populate buf with pointers to elements so we don't mess up the initial array
 			buf = buf[:0]
@@ -428,7 +428,7 @@ func interchromfilter(counts map[string]int, inters []inter) {
 			})
 			for j := 0; j < len(buf); {
 				c := sort.Search(len(buf), func(z int) bool { return distantRightOutOfWindow(*buf[j], *buf[z]) })
-				if j + 1 != c {
+				if j+1 != c {
 					for i := j; i < c; i++ {
 						buf[i].retain = true
 					}

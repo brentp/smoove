@@ -12,6 +12,7 @@ v0.2.2
   to use as-is.
 + cnvnator changes and filtering. (still requires github.com/brentp/CNVnator fork).
 + bugfix for case when no output directory was specified.
++ use mosdepth with --fast-mode **NOTE** this requires the latest version of mosdepth (0.2.4 or greater)
 
 v0.2.1
 ======
