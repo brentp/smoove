@@ -407,6 +407,13 @@ func interSlicePtrs(s []inter, d []*inter) []*inter {
 	return d
 }
 
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func interchromfilter(counts map[string]int, inters []inter) {
 	buf := make([]*inter, 0, len(inters))
 	for f := 0; f < len(inters); {
@@ -434,7 +441,7 @@ func interchromfilter(counts map[string]int, inters []inter) {
 					}
 				}
 				if c < len(buf) {
-					j = sort.Search(len(buf), func(z int) bool { return !distantLeftOutOfWindow(*buf[c], *buf[z]) })
+					j = max(j+1, sort.Search(len(buf), func(z int) bool { return !distantLeftOutOfWindow(*buf[c], *buf[z]) }))
 				} else {
 					j = c
 				}
@@ -478,7 +485,9 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 				// Eliminate interchromosomal reads are orphaned. i.e. there
 				// aren't other nearby reads that could be signaling an SV.
 				// Note that this only applies to discordants, not splitters.
-				if interOrDistant(rec) {
+				// There are sometimes reads with unmapped mates that get called as discordants
+				// so we have to check tid of mate != -1
+				if interOrDistant(rec) && rec.MateRef.ID() != -1 {
 					cur := inter{read1_tid: uint32(rec.Ref.ID()), read2_tid: uint32(rec.MateRef.ID()), read1_pos: uint32(rec.Pos), read2_pos: uint32(rec.MatePos), qname: name}
 					if last.read1_tid == empty_tid || localRightOutOfWindow(last, cur) {
 						if len(inters) != 0 {
