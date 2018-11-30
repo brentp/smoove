@@ -434,7 +434,7 @@ func interchromfilter(counts map[string]int, inters []inter) {
 				return buf[i].read2_pos < buf[j].read2_pos
 			})
 			for j := 0; j < len(buf); {
-				c := sort.Search(len(buf), func(z int) bool { return distantRightOutOfWindow(*buf[j], *buf[z]) })
+				c := max(j+1, sort.Search(len(buf), func(z int) bool { return distantRightOutOfWindow(*buf[j], *buf[z]) }))
 				if j+1 != c {
 					for i := j; i < c; i++ {
 						buf[i].retain = true
@@ -443,7 +443,7 @@ func interchromfilter(counts map[string]int, inters []inter) {
 				if c < len(buf) {
 					j = max(j+1, sort.Search(len(buf), func(z int) bool { return !distantLeftOutOfWindow(*buf[c], *buf[z]) }))
 				} else {
-					j = c
+					j = max(j+1, c)
 				}
 			}
 		}
