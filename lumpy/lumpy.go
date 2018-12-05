@@ -102,7 +102,12 @@ func lumpy_filter_cmd(bam string, outdir string, reference string) filter {
 	return f
 }
 
-func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool, minWeight int) *exec.Cmd {
+type cmdCounts struct {
+	cmd       *exec.Cmd
+	mapCounts map[string][4]int
+}
+
+func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool, minWeight int) cmdCounts {
 	if pool == nil {
 		pool = shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: shared.Prefix})
 	}
@@ -122,10 +127,10 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, pool *s
 		panic(err)
 	}
 
-	remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms, extraFilters)
+	mapCounts := remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms, extraFilters)
 	shared.Slogger.Print("starting lumpy")
 	p := run_lumpy(filters, reference, outdir, false, project, minWeight)
-	return p
+	return cmdCounts{cmd: p, mapCounts: mapCounts}
 }
 
 func run_lumpy(bams []filter, fa string, outdir string, has_cnvnator bool, name string, minWeight int) *exec.Cmd {
@@ -253,7 +258,7 @@ func fixStartEnd(line string) string {
 // filter BND variants from in that have < bndSupport
 // also sneak in contig header.
 // and also check and fix END > POS
-func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
+func bndFilter(in io.Reader, bndSupport int, fasta string, mapCounts map[string][4]int) io.Reader {
 	r, w := io.Pipe()
 	b := bufio.NewReader(in)
 	wb := bufio.NewWriter(w)
@@ -269,6 +274,9 @@ func bndFilter(in io.Reader, bndSupport int, fasta string) io.Reader {
 					if !contigsWritten {
 						writeContigs(wb, fasta)
 						wb.WriteString(fmt.Sprintf("##smoove_version=%s\n", smoove.Version))
+						for sample, st := range mapCounts {
+							wb.WriteString(fmt.Sprintf("##smoove_count_stats=%s:%d,%d,%d,%d\n", sample, st[0], st[1], st[2], st[3]))
+						}
 						contigsWritten = true
 					}
 
@@ -318,15 +326,15 @@ func Main() {
 		cli.OutDir = "./"
 	}
 	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters, cli.Support)
-	p.Stderr = shared.Slogger
+	p.cmd.Stderr = shared.Slogger
 	var err error
-	ivcf, err := p.StdoutPipe()
+	ivcf, err := p.cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
 	}
-	p.Start()
+	p.cmd.Start()
 
-	vcf := bndFilter(ivcf, cli.Support+BndSupportExtra, cli.Fasta)
+	vcf := bndFilter(ivcf, cli.Support+BndSupportExtra, cli.Fasta, p.mapCounts)
 
 	if cli.Genotype {
 		svtyper.Svtyper(vcf, cli.Fasta, cli.Bams, cli.OutDir, cli.Name, excludeNonRef, cli.RemovePr, cli.DupHold)
@@ -338,7 +346,7 @@ func Main() {
 		defer wtr.Close()
 		io.Copy(wtr, vcf)
 	}
-	p.Wait()
+	p.cmd.Wait()
 }
 
 func bgzopen(path string) (*os.File, *bgzf.Writer) {

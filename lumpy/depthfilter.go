@@ -163,10 +163,15 @@ func sketchyInterchromosomalOrSplit(r *sam.Record) bool {
 	return false
 }
 
+type readCount struct {
+	before int
+	after  int
+}
+
 // run mosdepth to find high coverage regions
 // read the bed file into an interval tree, iterate over the file,
 // and only output reads that do not overlap high coverage intervals.
-func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) {
+func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) readCount {
 	t0 := time.Now()
 
 	var t map[string]*interval.IntTree
@@ -303,7 +308,6 @@ rm {{prefix}}.quantized.bed.gz.csi
 		check(cp(fbam, fbw.Name()))
 		os.Remove(fbw.Name())
 	}
-
 	pct := float64(removed) / float64(tot) * 100
 	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) with low mapq, depth > %d, or from excluded chroms from %s in %.0f seconds\n",
 		removed, tot, pct, maxdepth, filepath.Base(fbam), time.Now().Sub(t0).Seconds())
@@ -313,42 +317,75 @@ rm {{prefix}}.quantized.bed.gz.csi
 	shared.Slogger.Printf("removed %d alignments out of %d (%.2f%%) that were bad interchromosomals or flanked-splitters from %s\n",
 		badInter, tot, pct, filepath.Base(fbam))
 
-	singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"), tot)
-
+	result := readCount{before: tot}
+	result.after = singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"), tot)
+	return result
 }
 
-func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) {
+type sampleBam struct {
+	sample      string
+	bam         string
+	splitOrDisc string
+}
+
+func mapToCounts(sm *sync.Map) map[string][4]int {
+	result := make(map[string][4]int)
+	sm.Range(func(key, value interface{}) bool {
+		k := key.(sampleBam)
+		v := value.(readCount)
+		tmp := result[k.sample]
+		if k.splitOrDisc == "split" {
+			tmp[0] = v.before
+			tmp[2] = v.after
+		} else if k.splitOrDisc == "disc" {
+			tmp[1] = v.before
+			tmp[3] = v.after
+		} else {
+			panic("unknown type:" + k.splitOrDisc)
+		}
+		result[k.sample] = tmp
+
+		return true
+	})
+
+	return result
+}
+
+func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude string, filter_chroms []string, extraFilters bool) map[string][4]int {
 
 	if _, err := exec.LookPath("mosdepth"); err != nil {
 		shared.Slogger.Print("mosdepth executable not found, proceeding without removing high-coverage regions.")
 	}
 
-	pch := make(chan string, runtime.GOMAXPROCS(0))
+	pch := make(chan sampleBam, runtime.GOMAXPROCS(0))
 	var wg sync.WaitGroup
+	var sm = &sync.Map{}
 
 	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
 		wg.Add(1)
 		go func() {
 			for bamp := range pch {
-				remove_sketchy(bamp, maxdepth, fasta, fexclude, filter_chroms, extraFilters)
-				proc := exec.Command("samtools", "index", bamp)
+				counts := remove_sketchy(bamp.bam, maxdepth, fasta, fexclude, filter_chroms, extraFilters)
+				proc := exec.Command("samtools", "index", bamp.bam)
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())
+				sm.Store(bamp, counts)
 			}
 			wg.Done()
 		}()
 	}
 
 	for _, b := range bams {
-		pch <- b.disc
+		pch <- sampleBam{bam: b.disc, sample: b.sample, splitOrDisc: "disc"}
 	}
 	for _, b := range bams {
-		pch <- b.split
+		pch <- sampleBam{bam: b.split, sample: b.sample, splitOrDisc: "split"}
 	}
 	close(pch)
 
 	wg.Wait()
+	return mapToCounts(sm)
 }
 
 // https://gist.github.com/elazarl/5507969#
@@ -460,7 +497,7 @@ func interchromfilter(counts map[string]int, inters []inter) {
 	}
 }
 
-func singletonfilter(fbam string, split bool, originalCount int) {
+func singletonfilter(fbam string, split bool, originalCount int) int {
 
 	t0 := time.Now()
 
@@ -556,4 +593,5 @@ func singletonfilter(fbam string, split bool, originalCount int) {
 	shared.Slogger.Printf("removed %d singletons %sof %d reads (%.2f%%) from %s in %.0f seconds", removed, additional, tot, pct, filepath.Base(f.Name()), time.Now().Sub(t0).Seconds())
 	pct = 100 * float64(nwritten) / float64(originalCount)
 	shared.Slogger.Printf("%d reads (%.2f%%) of the original %d remain from %s", nwritten, pct, originalCount, filepath.Base(f.Name()))
+	return nwritten
 }
