@@ -1,3 +1,8 @@
+v0.2.3
+======
++ save disc and split counts and output a plot as QC
++ annotate: annotate with up and downstream 5KB. so any gene within 5kb will be annotated.
+
 v0.2.2
 ======
 + huge reduction in number of discordant reads sent to lumpy for some problematic samples.

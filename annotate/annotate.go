@@ -63,7 +63,7 @@ func (i irange) Overlap(b interval.IntRange) bool {
 func (i irange) ID() uintptr              { return i.UID }
 func (i irange) Range() interval.IntRange { return interval.IntRange{i.Start, i.End} }
 
-// Overlaps checks for overlaps without pulling intervals from the tree.
+// Overlaps checks for overlaps and fills result.
 func Overlaps(tree *interval.IntTree, start, end int, result *[]irange) {
 	if len(*result) != 0 {
 		*result = (*result)[:0]
@@ -161,7 +161,8 @@ func passOne(path string, ftype string) map[string]string {
 	return geneIdToNameMap
 }
 
-const upstreamDist = 1000
+const upStreamDist = 5000
+const downStreamDist = 5000
 
 func readGff(path string) map[string]*interval.IntTree {
 	t := make(map[string]*interval.IntTree, 20)
@@ -190,19 +191,34 @@ func readGff(path string) map[string]*interval.IntTree {
 				if err := t[chrom].Insert(irange{Start: start, End: end, UID: uintptr(k), Ftype: "gene", Name: name}, false); err != nil {
 					panic(err)
 				}
+				k++
+				var dstart, dend int
 				if toks[6][0] == '-' {
-					start, end = end, end+upstreamDist
+					start, end = end, end+upStreamDist
+					dstart, dend = start-downStreamDist, start
+					if dstart < 0 {
+						dstart = 0
+					}
 
 				} else if toks[6][0] == '+' {
-					start, end = start-upstreamDist, start
+					if start > upStreamDist {
+						start, end = start-upStreamDist, start
+					} else {
+						start, end = 0, start
+					}
+					dstart, dend = end, end+upStreamDist
 				} else {
 					log.Println("invalid strand: ", toks[6])
 				}
 				if err := t[chrom].Insert(irange{Start: start, End: end, UID: uintptr(k), Ftype: "upstream", Name: name}, false); err != nil {
 					panic(err)
 				}
-
-				k += 1
+				k++
+				if err := t[chrom].Insert(irange{Start: dstart, End: dend, UID: uintptr(k), Ftype: "downstream", Name: name}, false); err != nil {
+					panic(err)
+				}
+				k++
+				continue
 			}
 			if bytes.Equal(toks[2], []byte("transcript")) {
 				continue
@@ -231,18 +247,8 @@ func readGff(path string) map[string]*interval.IntTree {
 			if err := t[chrom].Insert(irange{Start: start, End: end, UID: uintptr(k), Ftype: string(toks[2]), Name: name}, false); err != nil {
 				panic(err)
 			}
-			k += 1
+			k++
 		}
-		/*
-		   1       ensembl_havana  gene    65419   71585   .       +       .       ID=gene:ENSG00000186092;Name=OR4F5;biotype=protein_coding;description=olfactory receptor family 4 subfamily F member 5 [Source:HGNC Symbol%3BAcc:HGNC:14825];gene_id=ENSG00000186092;logic_name=ensembl_havana_gene;version=5
-		   1       havana  mRNA    65419   71585   .       +       .       ID=transcript:ENST00000641515;Parent=gene:ENSG00000186092;Name=OR4F5-202;biotype=protein_coding;ccdsid=CCDS30547.1;tag=basic;transcript_id=ENST00000641515;version=1
-		   1       havana  exon    65419   65433   .       +       .       Parent=transcript:ENST00000641515;Name=ENSE00003812156;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003812156;rank=1;version=1
-		   1       havana  five_prime_UTR  65419   65433   .       +       .       Parent=transcript:ENST00000641515
-		   1       havana  exon    65520   65573   .       +       .       Parent=transcript:ENST00000641515;Name=ENSE00003813641;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003813641;rank=2;version=1
-		   1       havana  five_prime_UTR  65520   65573   .       +       .       Parent=transcript:ENST00000641515
-		   1       havana  five_prime_UTR  69037   69090   .       +       .       Parent=transcript:ENST00000641515
-
-		*/
 
 		if err == io.EOF {
 			break
