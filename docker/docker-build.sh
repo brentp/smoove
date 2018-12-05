@@ -98,6 +98,9 @@ chmod +x /usr/bin/gsort
 wget -qO /usr/bin/gargs https://github.com/brentp/gargs/releases/download/v0.3.9/gargs_linux
 chmod +x /usr/bin/gargs
 
+wget -qO /usr/bin/goleft https://github.com/brentp/goleft/releases/download/v0.2.1/goleft_linux64
+chmod +x /usr/bin/goleft
+
 git clone --single-branch --recursive --depth 1 https://github.com/arq5x/lumpy-sv
 cd lumpy-sv
 make -j 3
