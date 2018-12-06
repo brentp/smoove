@@ -62,7 +62,11 @@ smoove call -x --name my-cohort --exclude $bed --fasta $fasta -p $threads --geno
 ```
 output will go to `./my-cohort-smoove.genotyped.vcf.gz`
 
-the `$exclude` is optional but can be used to remove problematic regions.
+the `--exclude $bed` is highly recommended as it can be used to remove problematic regions.
+
+A good set of regions for GRCh37 is [here](https://github.com/hall-lab/speedseq/blob/master/annotations/ceph18.b37.lumpy.exclude.2014-01-15.bed).
+
+And for hg38 [here](https://github.com/hall-lab/speedseq/blob/master/annotations/exclude.cnvnator_100bp.GRCh38.20170403.bed)
 
 ## population calling
 
@@ -71,8 +75,11 @@ For population-level calling (large cohorts) the steps are:
 1. For each sample, call genotypes:
 
 ```
-smoove call --outdir results-smoove/ --name $sample --fasta $fasta -p $threads --genotype /path/to/$sample.bam
+smoove call --outdir results-smoove/ --exclude $bed --name $sample --fasta $fasta -p 1 --genotype /path/to/$sample.bam
 ```
+
+For large cohorts, it's better to parallelize across samples rather than using a large $threads per sample. `smoove` can only
+parallelize up to 2 or 3 threads on a single-sample and it's most efficient to use 1 thread.
 
 output will go to `results-smoove/$sample-smoove.genotyped.vcf.gz``
 
