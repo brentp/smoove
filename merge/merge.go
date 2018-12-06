@@ -24,6 +24,11 @@ type cliargs struct {
 	VCFs   []string `arg:"positional,required,help:path to vcfs."`
 }
 
+type cliplotargs struct {
+	VCF  string `arg:"-v,required,help:path to input VCF from smoove 0.2.3 or greater."`
+	HTML string `arg:"-h,required,help:path to output html file to be written."`
+}
+
 type count struct {
 	sample       string
 	split_before int
@@ -93,6 +98,12 @@ func mustMarshal(x interface{}) string {
 		panic(err)
 	}
 	return string(v)
+}
+
+func PlotCountsMain() {
+	cli := cliplotargs{}
+	arg.MustParse(&cli)
+	plotCounts(cli.VCF, cli.HTML)
 }
 
 func plotCounts(path string, outpath string) {
