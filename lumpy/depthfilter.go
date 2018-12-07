@@ -224,6 +224,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 	// we know they are in order so avoid some lookups when filtering from remove chroms
 	var last string
 	var rmLast bool
+	isSplit := strings.HasSuffix(fbam, ".split.bam")
 
 	removed, tot := 0, 0
 	lowMQ := 0
@@ -289,6 +290,10 @@ rm {{prefix}}.quantized.bed.gz.csi
 				badInter++
 				continue
 			}
+			if isSplit && badSplitter(rec) {
+				badInter++
+				continue
+			}
 			check(bw.Write(rec))
 
 		}
@@ -318,7 +323,7 @@ rm {{prefix}}.quantized.bed.gz.csi
 		badInter, tot, pct, filepath.Base(fbam))
 
 	result := readCount{before: tot}
-	result.after = singletonfilter(fbam, strings.HasSuffix(fbam, ".split.bam"), tot)
+	result.after = singletonfilter(fbam, isSplit, tot)
 	return result
 }
 

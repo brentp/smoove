@@ -3,6 +3,7 @@ v0.2.3
 + save disc and split counts and output a plot as QC
 + annotate: annotate with up and downstream 5KB. so any gene within 5kb will be annotated.
 + smoove merge now outputs a plot that shows the number of split and discordant reads for each sample.
++ smoove now filters about 25% more split reads by looking at how the read is consumed.
 
 v0.2.2
 ======

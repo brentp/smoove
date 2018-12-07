@@ -66,7 +66,7 @@ func (s *LumpyTest) TestNM(c *C) {
 
 }
 
-type InterChromosomalTest struct{
+type InterChromosomalTest struct {
 	data []inter
 }
 
