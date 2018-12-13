@@ -13,7 +13,7 @@ import (
 
 func isBad(counts []int8) bool {
 	badEnds := 0
-	nonzero := 0
+	nonOne := 0
 	lo := 25
 	if len(counts) < 50 {
 		log.Println("short read")
@@ -24,17 +24,17 @@ func isBad(counts []int8) bool {
 	// only allow 6 bad bases.
 	hi := len(counts) - 25 - 1
 	for i, c := range counts {
-		if c != 0 {
-			nonzero += 1
+		if c != 1 {
+			nonOne += 1
 		}
 		if i > lo && i < hi {
 			continue
 		}
-		if c != 0 {
+		if c != 1 {
 			badEnds += 1
 		}
 	}
-	return badEnds > 5 || nonzero > 40
+	return badEnds > 5 || nonOne > 40
 }
 
 func reverse(s sam.Cigar) {
@@ -43,18 +43,15 @@ func reverse(s sam.Cigar) {
 	}
 }
 
+// countBases increments bases in all cigars that are aligned.
 func countBases(cigs []sam.Cigar, L int) []int8 {
 	counts := make([]int8, L)
 	for _, cig := range cigs {
 		off := 0
 		for _, op := range cig {
-			if op.Type() == sam.CigarSoftClipped || op.Type() == sam.CigarHardClipped {
+			if op.Type() == sam.CigarMatch || op.Type() == sam.CigarInsertion {
 				for i := 0; i < op.Len(); i++ {
-					counts[off+i] -= 1
-				}
-			} else if op.Type() == sam.CigarMatch || op.Type() == sam.CigarInsertion {
-				for i := 0; i < op.Len(); i++ {
-					counts[off+i] += 1
+					counts[off+i]++
 				}
 			}
 
@@ -145,15 +142,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		var maxL int
-		cigs := getCigars(rec, &maxL)
-		counts := countBases(cigs, maxL)
-		if isBad(counts) {
-			removed += 1
+		if badSplitter(rec) {
+			removed++
 			continue
 		}
 
-		kept += 1
+		kept++
 		/*
 			if err := bw.Write(rec); err != nil {
 				panic(err)
