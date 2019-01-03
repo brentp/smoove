@@ -62,7 +62,7 @@ smoove call -x --name my-cohort --exclude $bed --fasta $fasta -p $threads --geno
 ```
 output will go to `./my-cohort-smoove.genotyped.vcf.gz`
 
-the `--exclude $bed` is highly recommended as it can be used to remove problematic regions.
+the `--exclude $bed` is highly recommended as it can be used to ignore reads that overlap problematic regions.
 
 A good set of regions for GRCh37 is [here](https://github.com/hall-lab/speedseq/blob/master/annotations/ceph18.b37.lumpy.exclude.2014-01-15.bed).
 
