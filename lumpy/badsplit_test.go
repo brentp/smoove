@@ -19,7 +19,7 @@ func (s *BadSplitTest) TestCounts(c *C) {
 	cnts := countBases([]sam.Cigar{a, b}, 150)
 	c.Assert(len(cnts), Equals, 150)
 	for i := 0; i < 150; i++ {
-		c.Assert(cnts[i], Equals, int8(0))
+		c.Assert(cnts[i], Equals, int8(1))
 	}
 
 	c.Assert(isBad(cnts), Equals, false)
@@ -37,10 +37,10 @@ func (s *BadSplitTest) TestNotMatchingCounts(c *C) {
 		c.Assert(cnts[i], Equals, int8(2))
 	}
 	for i := 10; i < 100; i++ {
-		c.Assert(cnts[i], Equals, int8(0))
+		c.Assert(cnts[i], Equals, int8(1))
 	}
 	for i := 100; i < 110; i++ {
-		c.Assert(cnts[i], Equals, int8(-2))
+		c.Assert(cnts[i], Equals, int8(0))
 	}
 	c.Assert(isBad(cnts), Equals, true)
 

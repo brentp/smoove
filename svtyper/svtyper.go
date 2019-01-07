@@ -146,12 +146,11 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	check(psort.Start())
 	var mu sync.Mutex
 	var headerPrinted = false
-	var lib string
 	flib, err := tempclean.TempFile("", "svtype-lib")
 	check(err)
 	check(flib.Close())
 	check(os.Remove(flib.Name()))
-	lib = flib.Name()
+	lib := flib.Name()
 
 	// run svtyper the first time to get the lib
 	p := exec.Command("svtyper", "-B", strings.Join(bam_paths, ","), "-T", reference, "-l", lib, "-o", "-")
@@ -179,15 +178,18 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 				p.Stdout = shared.Slogger
 				check(p.Run())
 				// TODO: add check here to make sure n output variants is same as n input variants
-				f = t.Name()
-				rdr, err := xopen.Ropen(f)
+				rdr, err := xopen.Ropen(t.Name())
+				defer rdr.Close()
 				check(err)
 				mu.Lock()
 				if !headerPrinted {
+					// rdr also contains all the variants from the first chunk so those get printed as well.
 					_, err = io.Copy(out, rdr)
 					headerPrinted = true
-					out.Flush()
+					check(out.Flush())
 					mu.Unlock()
+					os.Remove(t.Name())
+					os.Remove(f)
 					continue
 				}
 				// already printed header...

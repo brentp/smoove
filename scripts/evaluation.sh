@@ -3,7 +3,6 @@ set -euo pipefail
 truvari=~/src/truvari/truvari.py
 fasta=/data/human/g1k_v37_decoy.fa
 cram=/data/human/hg002.cram
-version=dev
 
 #ncftp -R ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/AshkenazimTrio/HG002_NA24385_son/NIST_HiSeq_HG002_Homogeneity-10953946/HG002_HiSeq300x_fastq/140528_D00360_0018_AH8VC6ADXX/ .
 
@@ -30,8 +29,13 @@ bcftools view -i 'SVTYPE="DEL"' -O z -o HG002_SVs_Tier1_v0.6.DEL.vcf.gz HG002_SV
 tabix HG002_SVs_Tier1_v0.6.DEL.vcf.gz
 
 
-#rm -rf evaluation-$version
-#smoove call --genotype -o evaluation-$version/ -x -p 4 -f $fasta -n testing $cram
+#smoove_cmd=go run cmd/smoove/smoove.go
+version=dev
+smoove_cmd=./smoove_022
+version=v0.2.2
+
+rm -rf evaluation-$version
+$smoove_cmd call --genotype -o evaluation-$version/ -x -p 4 -f $fasta -n testing $cram
 
 bcftools view -i 'SVTYPE="DEL"' evaluation-$version/testing-smoove.genotyped.vcf.gz -O z -o evaluation-$version/testing-smoove.genotyped.DEL.vcf.gz
 tabix evaluation-$version/testing-smoove.genotyped.DEL.vcf.gz

@@ -325,10 +325,10 @@ func Main() {
 	if cli.OutDir == "" {
 		cli.OutDir = "./"
 	}
-	if cli.Processes >= 2*len(cli.Bams) {
-		shared.Slogger.Println("WARNING: smoove can only parallelize certain parts of the process.")
-		shared.Slogger.Println("WARNING: If you are running on many samples in a large cohort, it will be faster...")
-		shared.Slogger.Println("WARNING: to use fewer threads and distribute smoove call jobs across nodes")
+	if cli.Processes >= 3*len(cli.Bams) && len(cli.Bams) > 10 {
+		shared.Slogger.Println("smoove WARNING: smoove can only parallelize certain parts of the process.")
+		shared.Slogger.Println("smoove WARNING: If you are running on many samples in a large cohort, it will be faster...")
+		shared.Slogger.Println("smoove WARNING: to use fewer threads and distribute smoove call jobs across nodes")
 	}
 
 	p := Lumpy(cli.Name, cli.Fasta, cli.OutDir, cli.Bams, nil, cli.Exclude, filter_chroms, !cli.NoExtraFilters, cli.Support)

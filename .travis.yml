@@ -16,6 +16,7 @@ go:
 before_install:
   - go get ./...
   - go build cmd/smoove/smoove.go
+  - cd lumpy && go get gopkg.in/check.v1 && go test
   - docker pull brentp/smoove:dev
 
 script:
