@@ -31,11 +31,9 @@ tabix HG002_SVs_Tier1_v0.6.DEL.vcf.gz
 
 #smoove_cmd=go run cmd/smoove/smoove.go
 version=dev
-smoove_cmd=./smoove_022
-version=v0.2.2
 
 rm -rf evaluation-$version
-$smoove_cmd call --genotype -o evaluation-$version/ -x -p 4 -f $fasta -n testing $cram
+go run cmd/smoove/smoove.go call --genotype -o evaluation-$version/ -x -p 4 -f $fasta -n testing $cram
 
 bcftools view -i 'SVTYPE="DEL"' evaluation-$version/testing-smoove.genotyped.vcf.gz -O z -o evaluation-$version/testing-smoove.genotyped.DEL.vcf.gz
 tabix evaluation-$version/testing-smoove.genotyped.DEL.vcf.gz
