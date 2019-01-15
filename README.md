@@ -90,10 +90,10 @@ output will go to `results-smoove/$sample-smoove.genotyped.vcf.gz``
 smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.genotyped.vcf.gz
 ```
 
-3. genotype all samples at those sites (this can parallelize this across as many CPUs or machines as needed).
+3. genotype all samples at those sites (this can parallelize this across as many CPUs or machines as needed) and run [duphold](https://github.com/brentp/duphold) to add depth annotations.
 
 ```
-smoove genotype -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
+smoove genotype -d -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
 ```
 
 4. paste all the single sample VCFs with the same number of variants to get a single, squared, joint-called file.
@@ -111,7 +111,8 @@ smoove annotate --gff Homo_sapiens.GRCh37.82.gff3.gz $cohort.smoove.square.vcf.g
 This adds a `SHQ` (Smoove Het Quality) tag to every sample format) a value of **4 is a high quality** call and the value of 1 is low quality. -1 is non-het.
 It also adds a `MSHQ` for Mean SHQ to the INFO field which is the mean SHQ score across all heterozygous samples for that variant.
 
-As a first pass, users can look for variants with MSHQ > 3
+As a first pass, users can look for variants with MSHQ > 3. If you added [duphold](https://github.com/brentp/duphold) annotations, it's also
+useful to check deletions with `DHFFC < 0.7` and duplications with `DHFFC > 1.25`.
 
 # Troubleshooting
 
