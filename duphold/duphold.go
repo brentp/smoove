@@ -73,6 +73,8 @@ func Main() {
 		}
 		cli.Processes = len(cli.Bams)
 	}
+	cmds := make([]*exec.Cmd, 0, 20)
+	mu := sync.RWMutex{}
 	for i := 0; i < cli.Processes; i++ {
 		go func() {
 			for b := range ch {
@@ -84,8 +86,18 @@ func Main() {
 				cmd := exec.Command("duphold", args...)
 				cmd.Stderr = shared.Slogger
 				cmd.Stdout = shared.Slogger
+				mu.Lock()
+				cmds = append(cmds, cmd)
+				mu.Unlock()
 				if err := cmd.Run(); err != nil {
+					mu.Lock()
+					for _, c := range cmds {
+						if c != nil {
+							c.Process.Kill()
+						}
+					}
 					tempclean.Fatalf("%s", err)
+					mu.Unlock()
 				}
 				cmd = exec.Command("bcftools", "index", "--csi", "--threads", t, sampleBcf)
 				cmd.Stderr = shared.Slogger
