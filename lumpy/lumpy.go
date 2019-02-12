@@ -274,6 +274,7 @@ func bndFilter(in io.Reader, bndSupport int, fasta string, mapCounts map[string]
 					if !contigsWritten {
 						writeContigs(wb, fasta)
 						wb.WriteString(fmt.Sprintf("##smoove_version=%s\n", smoove.Version))
+						wb.WriteString(fmt.Sprintf("##reference=%s\n", fasta))
 						for sample, st := range mapCounts {
 							wb.WriteString(fmt.Sprintf("##smoove_count_stats=%s:%d,%d,%d,%d\n", sample, st[0], st[1], st[2], st[3]))
 						}

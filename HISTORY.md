@@ -1,3 +1,7 @@
+v0.2.4
+======
++ add ##reference=$fasta to vcf header. (#58)
+
 v0.2.3
 ======
 + save disc and split counts and output a plot as QC
