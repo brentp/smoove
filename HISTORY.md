@@ -1,6 +1,7 @@
 v0.2.4
 ======
 + add ##reference=$fasta to vcf header. (#58)
++ fix smoove annotate for recent ensembl GFFs which lack transcript features
 
 v0.2.3
 ======

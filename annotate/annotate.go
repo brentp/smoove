@@ -64,15 +64,21 @@ func (i irange) ID() uintptr              { return i.UID }
 func (i irange) Range() interval.IntRange { return interval.IntRange{i.Start, i.End} }
 
 // Overlaps checks for overlaps and fills result.
-func Overlaps(tree *interval.IntTree, start, end int, result *[]irange) {
+func Overlaps(trees map[string]*interval.IntTree, chrom string, start, end int, result *[]irange) {
+	var tree = trees[chrom]
 	if len(*result) != 0 {
 		*result = (*result)[:0]
 	}
 	if tree == nil {
-		return
+		if strings.HasPrefix(chrom, "chr") {
+			tree = trees[chrom[3:len(chrom)]]
+		}
+		if tree == nil {
+			return
+		}
 	}
 
-	q := irange{Start: start, End: end, UID: uintptr(tree.Len())}
+	q := irange{Start: start, End: end, UID: uintptr(tree.Len() + 1)}
 
 	tree.DoMatching(func(iv interval.IntInterface) bool {
 		*result = append(*result, iv.(irange))
@@ -123,13 +129,21 @@ func getParent(info []byte) string {
 	return tmp[len(tmp)-1]
 }
 
-func passOne(path string, ftype string) map[string]string {
+func anyEqual(q []byte, db []string) bool {
+	for _, d := range db {
+		if string(q) == d {
+			return true
+		}
+	}
+	return false
+}
+
+func passOne(path string, ftypes []string) map[string]string {
 	geneIdToNameMap := make(map[string]string, 64)
 	f, err := xopen.Ropen(path)
 	if err != nil {
 		panic(err)
 	}
-	btype := []byte(ftype)
 
 	for {
 		var id, name string
@@ -139,16 +153,18 @@ func passOne(path string, ftype string) map[string]string {
 				continue
 			}
 			toks := bytes.SplitN(line, []byte{'\t'}, 11)
-			if !bytes.Equal(toks[2], btype) {
+			if !anyEqual(toks[2], ftypes) {
 				continue
 			}
 
 			id, name = id2name(toks)
-			if !strings.HasSuffix(ftype, "gene") {
-				name = getParent(toks[8])
-			}
-			if id != "" && name != "" {
-				geneIdToNameMap[id] = name
+			for _, ftype := range ftypes {
+				if !strings.HasSuffix(ftype, "gene") {
+					name = getParent(toks[8])
+				}
+				if id != "" && name != "" {
+					geneIdToNameMap[id] = name
+				}
 			}
 		}
 		if err == io.EOF {
@@ -166,8 +182,15 @@ const downStreamDist = 5000
 
 func readGff(path string) map[string]*interval.IntTree {
 	t := make(map[string]*interval.IntTree, 20)
-	geneToNameMap := passOne(path, "gene")
-	transcriptToGeneMap := passOne(path, "transcript")
+	geneToNameMap := passOne(path, []string{"gene"})
+	transcriptToGeneMap := passOne(path, []string{"transcript", "mRNA"})
+	if len(geneToNameMap) == 0 {
+		log.Fatal("no records found with 'gene' type in gff")
+	}
+	if len(transcriptToGeneMap) == 0 {
+		log.Fatal("no records found with 'transcript' or 'mRNA' type in gff")
+	}
+
 	f, err := xopen.Ropen(path)
 	if err != nil {
 		panic(err)
@@ -229,13 +252,13 @@ func readGff(path string) map[string]*interval.IntTree {
 			}
 			// exon looks up transcript, but gene name is only in gene so we map transcript to gene and then store the gene name
 			id = getParent(toks[8])
+			//log.Println("id:", id)
+			//log.Println("transcript map:", transcriptToGeneMap)
+			//log.Println("gene map:", geneToNameMap)
 			name = transcriptToGeneMap[id]
 			if t, ok := geneToNameMap[name]; ok {
 				name = t
 			}
-			//log.Println("name:", name)
-			//log.Println("gene:", geneToNameMap[name])
-			//log.Println(string(toks[2])+":", name, " from:", id, " info:", string(toks[8]))
 			if name == "" {
 				continue // psuedo gene
 			}
@@ -385,7 +408,7 @@ func annotate(vcf *vcfgo.Reader, out *vcfgo.Writer, genes map[string]*interval.I
 		}
 		mq := setSmooveQuality(variant)
 		variant.Info().Set("MSHQ", mq)
-		Overlaps(genes[variant.Chromosome], int(variant.Start()), int(variant.End()), &overlapping)
+		Overlaps(genes, variant.Chromosome, int(variant.Start()), int(variant.End()), &overlapping)
 		if len(overlapping) == 0 {
 			out.WriteVariant(variant)
 			continue

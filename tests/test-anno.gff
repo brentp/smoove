@@ -1,0 +1,15 @@
+##gff-version 3
+##sequence-region   19 1 58617616
+#!genome-build Ensembl GRCh38.p12
+#!genome-version GRCh38
+#!genome-date 2013-12
+#!genome-build-accession NCBI:GCA_000001405.27
+#!genebuild-last-updated 2018-11
+##sequence-region   19 1 58617616
+chr19	ensembl_havana	exon	40389438	40390187	.	-	.	Parent=transcript:ENST00000291823;Name=ENSE00001227890;constitutive=1;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001227890;rank=1;version=2
+chr19	ensembl_havana	five_prime_UTR	40389903	40390187	.	-	.	Parent=transcript:ENST00000291823
+chr19	.	biological_region	40393092	40394000	0.961	-	.	external_name=rank %3D 1;logic_name=firstef
+chr19	havana	three_prime_UTR	40393768	40398556	.	-	.	Parent=transcript:ENST00000291825
+chr19	havana	exon	40393768	40398816	.	-	.	Parent=transcript:ENST00000291825;Name=ENSE00000706725;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00000706725;rank=6;version=6
+chr19	ensembl_havana	gene	40379271	40390187	.	-	.	ID=gene:ENSG00000160396;Name=HIPK4;biotype=protein_coding;description=homeodomain interacting protein kinase 4 [Source:HGNC Symbol%3BAcc:HGNC:19007];gene_id=ENSG00000160396;logic_name=ensembl_havana_gene;version=8
+chr19	ensembl_havana	mRNA	40379271	40390187	.	-	.	ID=transcript:ENST00000291823;Parent=gene:ENSG00000160396;Name=HIPK4-201;biotype=protein_coding;ccdsid=CCDS12555.1;tag=basic;transcript_id=ENST00000291823;transcript_support_level=1;version=2
