@@ -184,7 +184,7 @@ func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, fi
 		defer os.Remove(f.Name())
 		cmd := `
 export MOSDEPTH_Q0=OK
-export MOSDEPTH Q1=HIGH
+export MOSDEPTH_Q1=HIGH
 set -euo pipefail
 samtools index {{bam}}
 mosdepth -f {{fasta}} --fast-mode -n --quantize {{md1}}: {{prefix}} {{bam}}
