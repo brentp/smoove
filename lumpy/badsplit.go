@@ -44,13 +44,21 @@ func reverse(s sam.Cigar) {
 }
 
 // countBases increments bases in all cigars that are aligned.
-func countBases(cigs []sam.Cigar, L int) []int8 {
+func countBases(cigs []sam.Cigar, L int, rec *sam.Record) []int8 {
 	counts := make([]int8, L)
 	for _, cig := range cigs {
 		off := 0
 		for _, op := range cig {
 			if op.Type() == sam.CigarMatch || op.Type() == sam.CigarInsertion {
 				for i := 0; i < op.Len(); i++ {
+					if off+i < 0 || off+i >= len(counts) {
+						b, e := rec.MarshalSAM(0)
+						if e != nil {
+							log.Fatal(e)
+						}
+						log.Println("bad length in sam record:" + string(b) + "\nskipping")
+						return counts
+					}
 					counts[off+i]++
 				}
 			}
@@ -118,7 +126,7 @@ func getCigars(rec *sam.Record, maxL *int) []sam.Cigar {
 func badSplitter(rec *sam.Record) bool {
 	var maxL int
 	cigs := getCigars(rec, &maxL)
-	counts := countBases(cigs, maxL)
+	counts := countBases(cigs, maxL, rec)
 	return isBad(counts)
 }
 

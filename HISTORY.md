@@ -2,6 +2,8 @@ v0.2.4
 ======
 + add ##reference=$fasta to vcf header. (#58)
 + fix smoove annotate for recent ensembl GFFs which lack transcript features
++ fix bug in lumpy_filter for some versions of GCC (https://github.com/arq5x/lumpy-sv/pull/300)
++ just report message on weird alignments instead of failing (#68)
 
 v0.2.3
 ======
