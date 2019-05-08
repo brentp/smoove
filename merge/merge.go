@@ -184,6 +184,12 @@ func Main() {
 	p.Stderr = shared.Slogger
 	p.Stdout = shared.Slogger
 	if err := p.Run(); err != nil {
+		if strings.Contains(err.Error(), "Required tag PREND") {
+			log.Println("[smoove] use e.g.: `for f in *.genotyped.vcf.gz; do echo -n $f' '; bcftools view -H $f | grep -cv PREND; done | awk '$2 != 0'` to find the bad files.")
+		}
+		if strings.Contains(err.Error(), "Required tag PRPOS") {
+			log.Println("[smoove] use e.g.: `for f in *.genotyped.vcf.gz; do echo -n $f' '; bcftools view -H $f | grep -cv PRPOS; done | awk '$2 != 0'` to find the bad files.")
+		}
 		log.Fatal(err)
 	}
 	os.Remove(f.Name())
