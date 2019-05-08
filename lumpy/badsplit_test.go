@@ -16,7 +16,7 @@ func (s *BadSplitTest) TestCounts(c *C) {
 	b, err := sam.ParseCigar([]byte("100S50M"))
 	c.Assert(err, IsNil)
 
-	cnts := countBases([]sam.Cigar{a, b}, 150)
+	cnts := countBases([]sam.Cigar{a, b}, 150, nil)
 	c.Assert(len(cnts), Equals, 150)
 	for i := 0; i < 150; i++ {
 		c.Assert(cnts[i], Equals, int8(1))
@@ -32,7 +32,7 @@ func (s *BadSplitTest) TestNotMatchingCounts(c *C) {
 	b, err := sam.ParseCigar([]byte("10M100S"))
 	c.Assert(err, IsNil)
 
-	cnts := countBases([]sam.Cigar{a, b}, 150)
+	cnts := countBases([]sam.Cigar{a, b}, 150, nil)
 	for i := 0; i < 10; i++ {
 		c.Assert(cnts[i], Equals, int8(2))
 	}
@@ -43,5 +43,4 @@ func (s *BadSplitTest) TestNotMatchingCounts(c *C) {
 		c.Assert(cnts[i], Equals, int8(0))
 	}
 	c.Assert(isBad(cnts), Equals, true)
-
 }

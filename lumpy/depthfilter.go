@@ -82,7 +82,7 @@ func nm(r *sam.Record) int {
 		} else if v, ok := nmv.(uint16); ok {
 			return int(uint16(v))
 		} else {
-			shared.Slogger.Printf("bad NM type: %s was: %s", nmv, nm.Kind())
+			shared.Slogger.Printf("bad NM type: %s was: %s", nmv, string(nm.Kind()))
 		}
 	}
 	return 0
