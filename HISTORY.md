@@ -4,6 +4,8 @@ v0.2.4
 + fix smoove annotate for recent ensembl GFFs which lack transcript features
 + fix bug in lumpy_filter for some versions of GCC (https://github.com/arq5x/lumpy-sv/pull/300)
 + just report message on weird alignments instead of failing (#68)
++ lower lumpy z cutoff from 4 to 2.75. because of distribution of fragment lengths, this does
+  not affect much, but does improve sensitivity after duphold-DHFFC filtering slightly.
 
 v0.2.3
 ======
