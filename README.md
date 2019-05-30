@@ -10,6 +10,8 @@ There is a blog-post describing `smoove` in more detail [here](https://brentp.gi
 It both supports small cohorts in a single command, and population-level calling with 4 total steps, 2
 of which are parallel by sample.
 
+There is a table on the precision and recall of smoove and duphold (which is used by smoove)[here](https://github.com/brentp/duphold#accuracy)
+
 It requires:
 
  + [lumpy and lumpy\_filter](https://github.com/arq5x/lumpy-sv)
