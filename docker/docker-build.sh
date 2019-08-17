@@ -16,7 +16,7 @@ apt-get update
 apt-get -qy install \
     zlib1g-dev \
     make build-essential cmake libncurses-dev ncurses-dev g++ gcc \
-    python python-dev python-pip nfs-common \
+    nfs-common \
     pigz bedtools gawk curl fuse wget git mdadm time \
     libbz2-dev lzma-dev liblzma-dev \
     syslog-ng libssl-dev libtool autoconf automake \
@@ -72,24 +72,25 @@ chmod +x /usr/bin/batchit
 
 export HTSLIB_LIBRARY_DIR=/usr/local/lib
 export HTSLIB_INCLUDE_DIR=/usr/local/include
-pip install numpy pysam awscli cython toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2 pip
+pip3 install numpy scipy pysam awscli cython toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2
 
 cd $basedir
 git clone https://github.com/hall-lab/svtyper
-cd svtyper && python setup.py install
+cd svtyper && python3.7 setup.py install
 cd $basedir
 rm -rf svtyper
 
 cd $basedir
 git clone https://github.com/hall-lab/svtools
-cd svtools && python setup.py install
+cd svtools && python3.7 setup.py install
+echo ok
 cd $basedir
 rm -rf svtools
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.4/mosdepth
 chmod +x /usr/local/bin/mosdepth
 
-wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.1.0/duphold
+wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.1.4/duphold_static
 chmod +x /usr/local/bin/duphold
 
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
