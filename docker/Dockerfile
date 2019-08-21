@@ -1,15 +1,21 @@
 FROM ubuntu:16.04
+ENV PATH=/root/miniconda2/bin/:$PATH
 
-RUN apt update && \
-    apt-get install -qy software-properties-common &&  \
-    apt-add-repository ppa:deadsnakes/ppa && apt update
+RUN apt-get update && \
+    apt-get -qy install wget curl git \
+    zlib1g-dev \
+    make build-essential cmake libncurses-dev ncurses-dev g++ gcc \
+    nfs-common \
+    pigz bedtools gawk curl fuse wget git mdadm time \
+    libbz2-dev lzma-dev liblzma-dev \
+    syslog-ng libssl-dev libtool autoconf automake \
+    libcurl4-openssl-dev libffi-dev libblas-dev liblapack-dev libatlas-base-dev
 
-RUN apt-get -qy install python3.7 python3.7-dev curl && \
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-    python3.7 get-pip.py
+RUN wget -q https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh && \
+  bash Miniconda2-latest-Linux-x86_64.sh -fb
 
-COPY docker-build.sh .
-COPY ./smoove .
+COPY ./smoove /usr/local/bin/smoove
+COPY ./docker-build.sh .
 
 RUN touch asdf.xxx
 RUN bash docker-build.sh

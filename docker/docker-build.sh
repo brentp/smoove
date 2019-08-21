@@ -3,25 +3,6 @@
 set -euo pipefail
 basedir=$(pwd)
 
-if [[ -e ./smoove ]]; then
-cp ./smoove /usr/local/bin
-chmod +x /usr/local/bin/smoove
-else
-    # TODO
-    echo "NotImplemented"
-fi
-
-# used by Dockerfile
-apt-get update
-apt-get -qy install \
-    zlib1g-dev \
-    make build-essential cmake libncurses-dev ncurses-dev g++ gcc \
-    nfs-common \
-    pigz bedtools gawk curl fuse wget git mdadm time \
-    libbz2-dev lzma-dev liblzma-dev \
-    syslog-ng libssl-dev libtool autoconf automake \
-    libcurl4-openssl-dev libffi-dev libblas-dev liblapack-dev libatlas-base-dev
-
 git clone --depth 1 https://github.com/ebiggers/libdeflate.git 
 cd libdeflate
 make -j 2 CFLAGS='-fPIC -O3' libdeflate.a
@@ -72,17 +53,19 @@ chmod +x /usr/bin/batchit
 
 export HTSLIB_LIBRARY_DIR=/usr/local/lib
 export HTSLIB_INCLUDE_DIR=/usr/local/include
-pip3 install numpy scipy pysam awscli cython toolshed awscli-cwlogs pyvcf pyfaidx cyvcf2
+conda install -c conda-forge awscli
+conda install numpy scipy scipy cython
+conda install -c bioconda pysam toolshed pyvcf pyfaidx cyvcf2 svtyper svtools
 
 cd $basedir
 git clone https://github.com/hall-lab/svtyper
-cd svtyper && python3.7 setup.py install
+cd svtyper && python2.7 setup.py install
 cd $basedir
 rm -rf svtyper
 
 cd $basedir
 git clone https://github.com/hall-lab/svtools
-cd svtools && python3.7 setup.py install
+cd svtools && python2.7 setup.py install
 echo ok
 cd $basedir
 rm -rf svtools
