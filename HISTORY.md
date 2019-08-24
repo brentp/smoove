@@ -1,3 +1,8 @@
+v0.2.5 (dev)
+======
++ slight sensitivity increase
++ fix bug in VCF parser that could manifest inside of `smoove annotate`
+
 v0.2.4
 ======
 + add ##reference=$fasta to vcf header. (#58)

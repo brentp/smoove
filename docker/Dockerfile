@@ -14,11 +14,12 @@ RUN apt-get update && \
 RUN wget -q https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh && \
   bash Miniconda2-latest-Linux-x86_64.sh -fb
 
-COPY ./smoove /usr/local/bin/smoove
 COPY ./docker-build.sh .
 
 RUN touch asdf.xxx
 RUN bash docker-build.sh
 RUN rm -f asdf.xxx
+
+COPY ./smoove /usr/local/bin/smoove
 
 WORKDIR /work/

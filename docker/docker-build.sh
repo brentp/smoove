@@ -79,7 +79,7 @@ chmod +x /usr/local/bin/duphold
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
 chmod +x /usr/bin/gsort
 
-wget -qO /usr/bin/bpbio https://github.com/brentp/bpbio/releases/download/v0.1.1/bpbio
+wget -qO /usr/bin/bpbio https://github.com/brentp/bpbio/releases/download/v0.1.7/bpbio_static
 chmod +x /usr/bin/bpbio
 
 wget -qO /usr/bin/gargs https://github.com/brentp/gargs/releases/download/v0.3.9/gargs_linux

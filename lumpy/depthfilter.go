@@ -94,6 +94,17 @@ func nm_above(r *sam.Record, max_mismatches int) bool {
 	if nmc <= max_mismatches {
 		return false
 	}
+	if nmc < 10 && len(r.Cigar) == 1 && r.MapQ >= 59 && abs(r.Pos-r.MatePos) < 1000000 && r.Ref.ID() == r.MateRef.ID() {
+		// with a high mapq and a mate with a good cigar, we allow up to 10 mismatches.
+		if mc, ok := r.Tag([]byte{'M', 'C'}); ok {
+			if len(mc) > 3 {
+				_, err := strconv.Atoi(string(mc[3 : len(mc)-1]))
+				if err == nil && mc[len(mc)-1] == 'M' {
+					return false
+				}
+			}
+		}
+	}
 	nEvents := 0
 	for _, cig := range r.Cigar {
 		if cig.Type() == sam.CigarInsertion || cig.Type() == sam.CigarDeletion {
