@@ -92,7 +92,7 @@ output will go to `results-smoove/$sample-smoove.genotyped.vcf.gz``
 smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.genotyped.vcf.gz
 ```
 
-3. genotype all samples at those sites (this can parallelize this across as many CPUs or machines as needed) and run [duphold](https://github.com/brentp/duphold) to add depth annotations.
+3. genotype each sample at those sites (this can parallelize this across as many CPUs or machines as needed) and run [duphold](https://github.com/brentp/duphold) to add depth annotations.
 
 ```
 smoove genotype -d -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
