@@ -3,7 +3,7 @@
 set -euo pipefail
 basedir=$(pwd)
 
-git clone --depth 1 https://github.com/ebiggers/libdeflate.git 
+git clone --depth 1 https://github.com/ebiggers/libdeflate.git
 cd libdeflate
 make -j 2 CFLAGS='-fPIC -O3' libdeflate.a
 cp libdeflate.a /usr/local/lib
@@ -33,8 +33,6 @@ autoreconf && ./configure && make -j2 CFLAGS='-fPIC -O3' install
 cd $basedir && cp ./samtools/samtools /usr/local/bin/
 
 ## CNVNATOR
-apt-get -qy install libroot-math-mathmore-dev
-rm -rf /var/lib/apt/lists/*
 export CPLUS_INCLUDE_PATH=/usr/include/root/
 
 cd $basedir
@@ -53,22 +51,7 @@ chmod +x /usr/bin/batchit
 
 export HTSLIB_LIBRARY_DIR=/usr/local/lib
 export HTSLIB_INCLUDE_DIR=/usr/local/include
-conda install -c conda-forge awscli
-conda install numpy scipy scipy cython
-conda install -c bioconda pysam toolshed pyvcf pyfaidx cyvcf2 svtyper svtools
-
-cd $basedir
-git clone https://github.com/hall-lab/svtyper
-cd svtyper && python2.7 setup.py install
-cd $basedir
-rm -rf svtyper
-
-cd $basedir
-git clone https://github.com/hall-lab/svtools
-cd svtools && python2.7 setup.py install
-echo ok
-cd $basedir
-rm -rf svtools
+export LD_LIBRARY_PATH=/usr/local/lib
 
 wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.4/mosdepth
 chmod +x /usr/local/bin/mosdepth
@@ -88,6 +71,9 @@ chmod +x /usr/bin/gargs
 wget -qO /usr/bin/goleft https://github.com/brentp/goleft/releases/download/v0.2.1/goleft_linux64
 chmod +x /usr/bin/goleft
 
+wget -qO /usr/bin/smoove https://github.com/brentp/smoove/releases/download/v0.2.4/smoove
+chmod +x /usr/bin/smoove
+
 git clone --single-branch --recursive --depth 1 https://github.com/arq5x/lumpy-sv
 cd lumpy-sv
 make -j 3
@@ -96,5 +82,6 @@ cp ./bin/* /usr/local/bin/
 cd $basedir
 
 rm -rf lumpy-sv
+rm -rf /var/lib/apt/lists/*
 
 echo "done"
