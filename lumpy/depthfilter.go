@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ import (
 	"github.com/biogo/store/interval"
 	"github.com/brentp/goleft/depth"
 	"github.com/brentp/smoove/shared"
+	"github.com/kyroy/kdtree"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -424,41 +424,9 @@ func cp(dst, src string) error {
 	return d.Close()
 }
 
-type inter struct {
-	read1_tid uint32
-	read2_tid uint32
-	read1_pos uint32
-	read2_pos uint32
-	qname     string
-	retain    bool
-}
-
 // Size around an interchromosomal to look for support during filtering
 const inter_window_size = 10000
 const empty_tid = math.MaxUint32
-
-func localRightOutOfWindow(i, k inter) bool {
-	return (k.read1_tid > i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos > i.read1_pos+inter_window_size))
-}
-
-func localLeftOutOfWindow(i, k inter) bool {
-	return (k.read1_tid < i.read1_tid || (k.read1_tid == i.read1_tid && k.read1_pos < i.read1_pos-inter_window_size))
-}
-
-func distantRightOutOfWindow(i, k inter) bool {
-	return (k.read2_tid > i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos > i.read2_pos+inter_window_size))
-}
-
-func distantLeftOutOfWindow(i, k inter) bool {
-	return (k.read2_tid < i.read2_tid || (k.read2_tid == i.read2_tid && k.read2_pos < i.read2_pos-inter_window_size))
-}
-
-func interSlicePtrs(s []inter, d []*inter) []*inter {
-	for i := 0; i < len(s); i++ {
-		d = append(d, &s[i])
-	}
-	return d
-}
 
 func max(a, b int) int {
 	if a > b {
@@ -467,55 +435,86 @@ func max(a, b int) int {
 	return b
 }
 
-func interchromfilter(counts map[string]int, inters []inter) {
-	buf := make([]*inter, 0, len(inters))
-	for f := 0; f < len(inters); {
-		g := sort.Search(len(inters), func(z int) bool { return localRightOutOfWindow(inters[f], inters[z]) })
-		// now we know that everything between first and g is in-window relative to first
-		if f+1 != g {
-			// Need to check and see if in-window on distal site
-			// populate buf with pointers to elements so we don't mess up the initial array
-			buf = buf[:0]
-			buf = interSlicePtrs(inters[f:g], buf)
-			sort.SliceStable(buf, func(i, j int) bool {
-				switch {
-				case buf[i].read2_tid < buf[j].read2_tid:
-					return true
-				case buf[i].read2_tid > buf[j].read2_tid:
-					return false
-				}
-				return buf[i].read2_pos < buf[j].read2_pos
-			})
-			for j := 0; j < len(buf); {
-				c := max(j+1, sort.Search(len(buf), func(z int) bool { return distantRightOutOfWindow(*buf[j], *buf[z]) }))
-				if j+1 != c {
-					for i := j; i < c; i++ {
-						buf[i].retain = true
-					}
-				}
-				if c < len(buf) {
-					j = max(j+1, sort.Search(len(buf), func(z int) bool { return !distantLeftOutOfWindow(*buf[c], *buf[z]) }))
-				} else {
-					j = max(j+1, c)
-				}
-			}
-		}
-		if g < len(inters) {
-			f = sort.Search(len(inters), func(z int) bool { return !localLeftOutOfWindow(inters[g], inters[z]) })
-		} else {
-			f = g
-		}
-	}
-	for _, x := range inters {
-		if !x.retain {
-			counts[x.qname]--
-		}
-	}
+type point struct {
+	qname string
+	posns [2]float64
 }
 
+func (p *point) Dimensions() int {
+	return 2
+}
+
+func (p *point) Dimension(i int) float64 {
+	return p.posns[i]
+}
+
+func (p *point) max_distance(posns [2]float64) int {
+	//
+	a := abs(int(posns[0]) - int(p.posns[0]))
+	b := abs(int(posns[1]) - int(p.posns[1]))
+	return max(a, b)
+}
+
+var _ kdtree.Point = (*point)(nil)
+
+func tree_key_positions(rec *sam.Record) ([2]int, [2]float64) {
+	// we really have a n-chroms x n-chroms space. here, we make
+	// sure we use only the lower diagonal of that space.
+	// then within a single chrom, we also use only the lower diagonal.
+	tids := [2]int{rec.Ref.ID(), rec.MateRef.ID()}
+	posns := [2]float64{float64(rec.Pos), float64(rec.MatePos)}
+	if tids[0] > tids[1] {
+		var tmp = tids[0]
+		tids[0] = tids[1]
+		tids[1] = tmp
+		var tmpf = posns[0]
+		posns[0] = posns[1]
+		posns[1] = tmpf
+	} else if tids[0] == tids[1] && posns[0] > posns[1] {
+		var tmpf = posns[0]
+		posns[0] = posns[1]
+		posns[1] = tmpf
+	}
+	return tids, posns
+}
+
+func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[string]int) int {
+	n_dropped := 0
+	for {
+		rec, err := br.Read()
+		if rec != nil {
+			name := rec.Name
+			key, posns := tree_key_positions(rec)
+			t, ok := inters[key]
+			if !ok {
+				continue
+			}
+			found := t.KNN(&point{posns: posns}, 2)
+			for _, f := range found {
+				if f.(*point).qname == name {
+					continue
+				}
+				if f.(*point).max_distance(posns) > 10000 {
+					counts[name]--
+					n_dropped += 1
+				}
+			}
+
+		}
+		if err == io.EOF {
+			break
+		}
+		check(err)
+	}
+
+	return n_dropped
+}
 func singletonfilter(fbam string, split bool, originalCount int) int {
 
 	t0 := time.Now()
+
+	// keyed by chroms
+	inters := make(map[[2]int]*kdtree.KDTree, 20)
 
 	f, err := os.Open(fbam)
 	check(err)
@@ -524,9 +523,9 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 	check(err)
 
 	counts := make(map[string]int, 100)
-	inters := make([]inter, 0, 100)
-	last := inter{read1_tid: empty_tid}
 
+	// first pass finds pairs (so we can later exclude orphans and fills the kdtree
+	// for interchromsomals
 	for {
 		rec, err := br.Read()
 		if rec != nil {
@@ -535,22 +534,20 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 				// split sets first letter to A or B. Here we normalize.
 				name = "A" + name[1:]
 			} else {
-				// Eliminate interchromosomal reads are orphaned. i.e. there
+				// Use tree to later eliminate interchromosomal reads are orphaned. i.e. there
 				// aren't other nearby reads that could be signaling an SV.
 				// Note that this only applies to discordants, not splitters.
 				// There are sometimes reads with unmapped mates that get called as discordants
 				// so we have to check tid of mate != -1
 				if interOrDistant(rec) && rec.MateRef.ID() != -1 {
-					cur := inter{read1_tid: uint32(rec.Ref.ID()), read2_tid: uint32(rec.MateRef.ID()), read1_pos: uint32(rec.Pos), read2_pos: uint32(rec.MatePos), qname: name}
-					if last.read1_tid == empty_tid || localRightOutOfWindow(last, cur) {
-						if len(inters) != 0 {
-							interchromfilter(counts, inters)
-							// Clear our buffer
-							inters = inters[:0]
-						}
+					key, posns := tree_key_positions(rec)
+					t, ok := inters[key]
+					if !ok {
+						t = kdtree.New([]kdtree.Point{})
+						inters[key] = t
 					}
-					inters = append(inters, cur)
-					last = cur
+					// if the chroms were flipped, we have to flip the points as well
+					t.Insert(&point{qname: rec.Name, posns: posns})
 				}
 			}
 			counts[name]++
@@ -560,7 +557,15 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 		}
 		check(err)
 	}
-	interchromfilter(counts, inters)
+
+	if !split {
+		f.Seek(0, os.SEEK_SET)
+		br, err = bam.NewReader(f, 1)
+		check(err)
+		td := time.Now()
+		ndropped := drop_orphans(br, inters, counts)
+		shared.Slogger.Printf("removed %d orphans in %.0f seconds", ndropped, time.Now().Sub(td).Seconds())
+	}
 
 	f.Seek(0, os.SEEK_SET)
 	br, err = bam.NewReader(f, 1)
