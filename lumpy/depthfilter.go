@@ -482,7 +482,10 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 	for {
 		rec, err := br.Read()
 		if rec != nil {
-			name := rec.Name
+			if !(interOrDistant(rec) && rec.MateRef.ID() != -1) {
+				continue
+			}
+
 			key, posns := tree_key_positions(rec)
 			t, ok := inters[key]
 			if !ok {
@@ -490,15 +493,20 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 			}
 			found := t.KNN(&point{posns: posns}, 2)
 			distant := false
+			self := false
 			for _, f := range found {
-				if f.(*point).max_distance(posns) > 10000 {
+				d := f.(*point).max_distance(posns)
+				if d > 5000 {
 					// should have only self and 1 other point so
 					// fi we have 1 point that's far, we can skip
 					distant = true
+				} else if d == 0 {
+					self = true
 				}
 			}
-			if distant {
-				counts[name]--
+			// we test some reads that are not interchromosomal, so we require finding self
+			if distant && self {
+				counts[rec.Name]--
 				n_dropped++
 			}
 
