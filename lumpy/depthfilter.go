@@ -119,6 +119,21 @@ func interOrDistant(r *sam.Record) bool {
 	return (r.Ref.ID() != r.MateRef.ID()) || (abs(r.Pos-r.MatePos) > 8000000)
 }
 
+func interChromosomalSplit(r *sam.Record) bool {
+	tags, ok := r.Tag([]byte{'S', 'A'})
+	if !ok {
+		return false
+	}
+	atags := bytes.Split(tags[3:len(tags)-1], []byte{';'})
+	for _, t := range atags {
+		pieces := bytes.Split(t, []byte{','})
+		if string(pieces[0]) == r.MateRef.Name() || string(pieces[0]) == r.Ref.Name() {
+			return false
+		}
+	}
+	return true
+}
+
 // check if the alignment has a splitter nearby.
 // useful for checking when small tandem dups of more than 3 copies
 // are encompassed in a read.
@@ -477,13 +492,17 @@ func tree_key_positions(rec *sam.Record) ([2]int, [2]float64) {
 	return tids, posns
 }
 
-func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[string]int) int {
+func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[string]int, split bool) int {
 	n_dropped := 0
 	n_kept := 0
 	for {
 		rec, err := br.Read()
 		if rec != nil {
-			if !(interOrDistant(rec) && rec.MateRef.ID() != -1 && (rec.Flags&sam.Read1 != 0)) {
+			if !split && !(interOrDistant(rec) && rec.MateRef.ID() != -1 && (rec.Flags&sam.Read1 != 0)) {
+				continue
+			}
+
+			if split && !interChromosomalSplit(rec) {
 				continue
 			}
 
@@ -547,6 +566,16 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 			if split {
 				// split sets first letter to A or B. Here we normalize.
 				name = "A" + name[1:]
+				if interChromosomalSplit(rec) {
+					key, posns := tree_key_positions(rec)
+					t, ok := inters[key]
+					if !ok {
+						t = kdtree.New([]kdtree.Point{})
+						inters[key] = t
+					}
+					// if the chroms were flipped, we have to flip the points as well
+					t.Insert(&point{posns: posns})
+				}
 			} else {
 				// Use tree to later eliminate interchromosomal reads are orphaned. i.e. there
 				// aren't other nearby reads that could be signaling an SV.
@@ -572,14 +601,16 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 		check(err)
 	}
 
-	if !split {
-		f.Seek(0, os.SEEK_SET)
-		br, err = bam.NewReader(f, 1)
-		check(err)
-		td := time.Now()
-		ndropped := drop_orphans(br, inters, counts)
-		shared.Slogger.Printf("removed %d orphans in %.0f seconds", ndropped, time.Now().Sub(td).Seconds())
+	f.Seek(0, os.SEEK_SET)
+	br, err = bam.NewReader(f, 1)
+	check(err)
+	td := time.Now()
+	ndropped := drop_orphans(br, inters, counts, split)
+	label := "discordant"
+	if split {
+		label = "split"
 	}
+	shared.Slogger.Printf("removed %d %s orphans in %.0f seconds", ndropped, label, time.Now().Sub(td).Seconds())
 
 	f.Seek(0, os.SEEK_SET)
 	br, err = bam.NewReader(f, 1)
