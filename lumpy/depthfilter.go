@@ -436,7 +436,6 @@ func max(a, b int) int {
 }
 
 type point struct {
-	qname string
 	posns [2]float64
 }
 
@@ -490,14 +489,17 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 				continue
 			}
 			found := t.KNN(&point{posns: posns}, 2)
+			distant := false
 			for _, f := range found {
-				if f.(*point).qname == name {
-					continue
-				}
 				if f.(*point).max_distance(posns) > 10000 {
-					counts[name]--
-					n_dropped += 1
+					// should have only self and 1 other point so
+					// fi we have 1 point that's far, we can skip
+					distant = true
 				}
+			}
+			if distant {
+				counts[name]--
+				n_dropped++
 			}
 
 		}
@@ -547,7 +549,7 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 						inters[key] = t
 					}
 					// if the chroms were flipped, we have to flip the points as well
-					t.Insert(&point{qname: rec.Name, posns: posns})
+					t.Insert(&point{posns: posns})
 				}
 			}
 			counts[name]++
