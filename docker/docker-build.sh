@@ -53,10 +53,10 @@ export HTSLIB_LIBRARY_DIR=/usr/local/lib
 export HTSLIB_INCLUDE_DIR=/usr/local/include
 export LD_LIBRARY_PATH=/usr/local/lib
 
-wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.4/mosdepth
+wget -qO /usr/local/bin/mosdepth https://github.com/brentp/mosdepth/releases/download/v0.2.6/mosdepth
 chmod +x /usr/local/bin/mosdepth
 
-wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.1.4/duphold_static
+wget -qO /usr/local/bin/duphold https://github.com/brentp/duphold/releases/download/v0.2.1/duphold
 chmod +x /usr/local/bin/duphold
 
 wget -qO /usr/bin/gsort https://github.com/brentp/gsort/releases/download/v0.0.6/gsort_linux_amd64
