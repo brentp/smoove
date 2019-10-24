@@ -479,10 +479,11 @@ func tree_key_positions(rec *sam.Record) ([2]int, [2]float64) {
 
 func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[string]int) int {
 	n_dropped := 0
+	n_kept := 0
 	for {
 		rec, err := br.Read()
 		if rec != nil {
-			if !(interOrDistant(rec) && rec.MateRef.ID() != -1) {
+			if !(interOrDistant(rec) && rec.MateRef.ID() != -1 && (rec.Flags&sam.Read1 != 0)) {
 				continue
 			}
 
@@ -496,7 +497,7 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 			self := false
 			for _, f := range found {
 				d := f.(*point).max_distance(posns)
-				if d > 5000 {
+				if d > 1000 {
 					// should have only self and 1 other point so
 					// fi we have 1 point that's far, we can skip
 					distant = true
@@ -508,6 +509,8 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 			if distant && self {
 				counts[rec.Name]--
 				n_dropped++
+			} else {
+				n_kept++
 			}
 
 		}
@@ -517,6 +520,7 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 		check(err)
 	}
 
+	shared.Slogger.Printf("kept %d putative orphans", n_kept)
 	return n_dropped
 }
 func singletonfilter(fbam string, split bool, originalCount int) int {
@@ -549,7 +553,7 @@ func singletonfilter(fbam string, split bool, originalCount int) int {
 				// Note that this only applies to discordants, not splitters.
 				// There are sometimes reads with unmapped mates that get called as discordants
 				// so we have to check tid of mate != -1
-				if interOrDistant(rec) && rec.MateRef.ID() != -1 {
+				if interOrDistant(rec) && rec.MateRef.ID() != -1 && (rec.Flags&sam.Read1 != 0) {
 					key, posns := tree_key_positions(rec)
 					t, ok := inters[key]
 					if !ok {
