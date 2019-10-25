@@ -498,6 +498,13 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 	for {
 		rec, err := br.Read()
 		if rec != nil {
+			name := rec.Name
+			if split {
+				name = "A" + name[1:]
+			}
+			if counts[name] < 2 {
+				continue
+			}
 			if !split && !(interOrDistant(rec) && rec.MateRef.ID() != -1 && (rec.Flags&sam.Read1 != 0)) {
 				continue
 			}
@@ -526,7 +533,7 @@ func drop_orphans(br *bam.Reader, inters map[[2]int]*kdtree.KDTree, counts map[s
 			}
 			// we test some reads that are not interchromosomal, so we require finding self
 			if distant && self {
-				counts[rec.Name]--
+				counts[name]--
 				n_dropped++
 			} else {
 				n_kept++
