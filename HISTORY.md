@@ -1,7 +1,8 @@
-v0.2.5 (dev)
+v0.2.5
 ======
 + slight sensitivity increase
 + fix bug in VCF parser that could manifest inside of `smoove annotate`
++ reduce run time for problematic samples. using a kdtree.
 
 v0.2.4
 ======
