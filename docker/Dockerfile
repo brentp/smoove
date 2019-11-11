@@ -27,4 +27,5 @@ ENV LD_LIBRARY_PATH /usr/local/lib
 
 COPY ./docker-build.sh .
 RUN bash docker-build.sh
+COPY ./smoove /usr/bin/
 WORKDIR /work/

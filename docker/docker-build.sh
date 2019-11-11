@@ -71,8 +71,8 @@ chmod +x /usr/bin/gargs
 wget -qO /usr/bin/goleft https://github.com/brentp/goleft/releases/download/v0.2.1/goleft_linux64
 chmod +x /usr/bin/goleft
 
-wget -qO /usr/bin/smoove https://github.com/brentp/smoove/releases/download/v0.2.4/smoove
-chmod +x /usr/bin/smoove
+#wget -qO /usr/bin/smoove https://github.com/brentp/smoove/releases/download/v0.2.4/smoove
+#chmod +x /usr/bin/smoove
 
 git clone --single-branch --recursive --depth 1 https://github.com/arq5x/lumpy-sv
 cd lumpy-sv
