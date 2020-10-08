@@ -135,7 +135,7 @@ func Svtyper(vcf io.Reader, reference string, bam_paths []string, outdir, name s
 	} else {
 		cmd = fmt.Sprintf("set -euo pipefail; gsort /dev/stdin %s.fai | bcftools view -O z%s -o %s", reference, exRef, o)
 	}
-	cmd += fmt.Sprintf("; bcftools index --threads %d %s", 3, o)
+	cmd += fmt.Sprintf("; bcftools index -f --threads %d %s", 3, o)
 	psort = exec.Command("bash", "-c", cmd)
 	psort.Stderr = shared.Slogger
 	var err error
