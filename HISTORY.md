@@ -1,3 +1,7 @@
+v0.2.6
+======
++ fix name collisions with cram (#134)
+
 v0.2.5
 ======
 + slight sensitivity increase

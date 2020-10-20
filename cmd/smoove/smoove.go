@@ -8,7 +8,6 @@ import (
 
 	"github.com/brentp/smoove"
 	"github.com/brentp/smoove/annotate"
-	"github.com/brentp/smoove/cnvnator"
 	"github.com/brentp/smoove/duphold"
 	"github.com/brentp/smoove/hipstr"
 	"github.com/brentp/smoove/lumpy"
@@ -26,7 +25,6 @@ type progPair struct {
 }
 
 var progs = []progPair{
-	//"cnvnator": progPair{"call cnvnator and make bedpe files needed by lumpy", cnvnator.Main},
 	progPair{"call", "call lumpy (and optionally svtyper)", lumpy.Main},
 	progPair{"merge", "merge and sort (using svtools) calls from multiple samples", merge.Main},
 	progPair{"genotype", "parallelize svtyper on an input VCF", svtyper.Main},
@@ -34,7 +32,6 @@ var progs = []progPair{
 	progPair{"plot-counts", "plot counts of split, discordant reads before, after smoove filtering", merge.PlotCountsMain},
 	progPair{"annotate", "annotate a VCF with gene and quality of SV call", annotate.Main},
 	progPair{"hipstr", "run hipSTR in parallel", hipstr.Main},
-	progPair{"cnvnator", "run cnvnator in parallel", cnvnator.Main},
 	progPair{"duphold", "run duphold in parallel (this can be done by adding a flag to call or genotype)", duphold.Main},
 }
 

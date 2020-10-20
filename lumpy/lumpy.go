@@ -17,8 +17,8 @@ import (
 	"sync"
 
 	arg "github.com/alexflint/go-arg"
-	"github.com/biogo/biogo/io/seqio/fai"
 	"github.com/biogo/hts/bgzf"
+	"github.com/biogo/hts/fai"
 	"github.com/brentp/faidx"
 	"github.com/brentp/go-athenaeum/shpool"
 	"github.com/brentp/goleft/covstats"
