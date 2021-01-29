@@ -60,7 +60,7 @@ so you can adjust your $PATH and install accordingly.
 for small cohorts it's possible to get a jointly-called, genotyped VCF in a **single command**.
 
 ```
-smoove call -x --name my-cohort --exclude $bed --fasta $fasta -p $threads --genotype /path/to/*.bam
+smoove call -x --name my-cohort --exclude $bed --fasta $reference_fasta -p $threads --genotype /path/to/*.bam
 ```
 output will go to `./my-cohort-smoove.genotyped.vcf.gz`
 
@@ -77,7 +77,7 @@ For population-level calling (large cohorts) the steps are:
 1. For each sample, call genotypes:
 
 ```
-smoove call --outdir results-smoove/ --exclude $bed --name $sample --fasta $fasta -p 1 --genotype /path/to/$sample.bam
+smoove call --outdir results-smoove/ --exclude $bed --name $sample --fasta $reference_fasta -p 1 --genotype /path/to/$sample.bam
 ```
 
 For large cohorts, it's better to parallelize across samples rather than using a large $threads per sample. `smoove` can only
@@ -89,13 +89,13 @@ output will go to `results-smoove/$sample-smoove.genotyped.vcf.gz``
 
 ```
 # this will create ./merged.sites.vcf.gz
-smoove merge --name merged -f $fasta --outdir ./ results-smoove/*.genotyped.vcf.gz
+smoove merge --name merged -f $reference_fasta --outdir ./ results-smoove/*.genotyped.vcf.gz
 ```
 
 3. genotype each sample at those sites (this can parallelize this across as many CPUs or machines as needed) and run [duphold](https://github.com/brentp/duphold) to add depth annotations.
 
 ```
-smoove genotype -d -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta $fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
+smoove genotype -d -x -p 1 --name $sample-joint --outdir results-genotped/ --fasta $reference_fasta --vcf merged.sites.vcf.gz /path/to/$sample.$bam
 ```
 
 4. paste all the single sample VCFs with the same number of variants to get a single, squared, joint-called file.
