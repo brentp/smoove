@@ -1,3 +1,7 @@
+v0.2.7
+======
++ use csi index for bams to support larger organisms
+
 v0.2.6
 ======
 + fix name collisions with cram (#134)

@@ -212,7 +212,7 @@ func remove_sketchy(fbam string, maxdepth int, fasta string, fexclude string, fi
 export MOSDEPTH_Q0=OK
 export MOSDEPTH_Q1=HIGH
 set -euo pipefail
-samtools index {{bam}}
+samtools index -c {{bam}}
 mosdepth -f {{fasta}} --fast-mode -n --quantize {{md1}}: {{prefix}} {{bam}}
 rm -f {{prefix}}.mosdepth*.dist.txt
 rm {{prefix}}.quantized.bed.gz.csi
@@ -397,7 +397,7 @@ func remove_sketchy_all(bams []filter, maxdepth int, fasta string, fexclude stri
 		go func() {
 			for bamp := range pch {
 				counts := remove_sketchy(bamp.bam, maxdepth, fasta, fexclude, filter_chroms, extraFilters)
-				proc := exec.Command("samtools", "index", bamp.bam)
+				proc := exec.Command("samtools", "index", "-c", bamp.bam)
 				proc.Stderr = os.Stderr
 				proc.Stdout = os.Stdout
 				check(proc.Run())
