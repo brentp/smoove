@@ -98,17 +98,27 @@ func Main() {
 
 	cli := cliargs{OutDir: "./"}
 	arg.MustParse(&cli)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(len(cli.VCFs))
-	procs := 5
-
-	go count(wg, procs, cli.VCFs)
-
 	outvcf := fmt.Sprintf(filepath.Join(cli.OutDir, cli.Name) + ".smoove.square.vcf.gz")
-	shared.Slogger.Printf("squaring %d files to %s", len(cli.VCFs), outvcf)
+	var wg *sync.WaitGroup
+
+	// TODO: check files in list
+	if !strings.HasSuffix(cli.VCFs[0], ".list") {
+		wg = &sync.WaitGroup{}
+		wg.Add(len(cli.VCFs))
+		procs := 5
+
+		go count(wg, procs, cli.VCFs)
+		shared.Slogger.Printf("squaring %d files to %s", len(cli.VCFs), outvcf)
+	} else {
+		shared.Slogger.Printf("squaring files from %s to %s", cli.VCFs[0], outvcf)
+	}
+
 	args := []string{"merge", "-o", outvcf, "-O", "z", "--threads", "3"}
-	args = append(args, cli.VCFs...)
+	if strings.HasSuffix(cli.VCFs[0], ".list") && len(cli.VCFs) == 1 {
+		args = append(args, []string{"-l", cli.VCFs[0]}...)
+	} else {
+		args = append(args, cli.VCFs...)
+	}
 
 	p := exec.Command("bcftools", args...)
 	p.Stderr = shared.Slogger
@@ -118,5 +128,7 @@ func Main() {
 		log.Fatal(err)
 	}
 	shared.Slogger.Printf("wrote squared file to %s", outvcf)
-	wg.Wait()
+	if wg != nil {
+		wg.Wait()
+	}
 }

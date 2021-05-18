@@ -2,6 +2,7 @@ v0.2.7
 ======
 + use csi index for bams to support larger organisms
 + fix ordering of error-checking (#146)
++ support for longer file-lists (#151)
 
 v0.2.6
 ======
