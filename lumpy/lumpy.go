@@ -107,6 +107,20 @@ type cmdCounts struct {
 	mapCounts map[string][4]int
 }
 
+func getMaxDepth() int {
+	defaultD := 1000
+	t := os.Getenv("SMOOVE_MAX_DEPTH")
+	if t == "" {
+		return defaultD
+	}
+	n, err := strconv.Atoi(t)
+	if err != nil {
+		return defaultD
+	}
+	shared.Slogger.Printf("couldn't set max depth to %v", t)
+	return n
+}
+
 func Lumpy(project, reference string, outdir string, bam_paths []string, pool *shpool.Pool, exclude_bed string, filter_chroms []string, extraFilters bool, minWeight int) cmdCounts {
 	if pool == nil {
 		pool = shpool.New(runtime.GOMAXPROCS(0), nil, &shpool.Options{LogPrefix: shared.Prefix})
@@ -127,7 +141,9 @@ func Lumpy(project, reference string, outdir string, bam_paths []string, pool *s
 		panic(err)
 	}
 
-	mapCounts := remove_sketchy_all(filters, 1000, reference, exclude_bed, filter_chroms, extraFilters)
+	var maxDepth = getMaxDepth()
+
+	mapCounts := remove_sketchy_all(filters, maxDepth, reference, exclude_bed, filter_chroms, extraFilters)
 	shared.Slogger.Print("starting lumpy")
 	p := run_lumpy(filters, reference, outdir, false, project, minWeight)
 	return cmdCounts{cmd: p, mapCounts: mapCounts}
