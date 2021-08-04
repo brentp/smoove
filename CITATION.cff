@@ -1,0 +1,13 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Pedersen
+    given-names: Brent S.
+  - family-names: Layer
+    given-names: Ryan
+  - family-names: Quinlan
+    given-names: Aaron R.
+title: "smoove: structural-variant calling and genotyping with existing tools"
+contact: bpederse@gmail.com
+version: 0.2.8
+date-released: 2020-01-01
