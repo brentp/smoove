@@ -13,7 +13,7 @@ rm -rf libdeflate
 git clone --recursive https://github.com/samtools/htslib.git
 git clone --recursive https://github.com/samtools/samtools.git
 git clone --recursive https://github.com/samtools/bcftools.git
-cd htslib && git checkout 1.11 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate
+cd htslib && git checkout 1.11 && autoheader && autoconf && ./configure --enable-libcurl --with-libdeflate --enable-s3 --enable-gcs
 cd .. && make -j4 CFLAGS="-fPIC -O3" -C htslib install
 cd $basedir
 
