@@ -2,6 +2,9 @@ FROM ubuntu:16.04
 
 ENV PATH /opt/conda/bin:$PATH
 
+ARG htslib_version=0.13
+ENV htslib_version $htslib_version
+
 RUN apt-get update --fix-missing &&  \
     apt-get install -qy wget curl git bzip2 ca-certificates procps zlib1g-dev \
     make build-essential cmake libncurses-dev ncurses-dev g++ gcc \
