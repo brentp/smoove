@@ -41,7 +41,7 @@ type cliargs struct {
 	Support        int      `arg:"-S,help:mininum support required to report a variant."`
 	Genotype       bool     `arg:"help:stream output to svtyper for genotyping"`
 	DupHold        bool     `arg:"-d,help:run duphold on output. only works with --genotype"`
-	RemovePr       bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO (only used with --gentoype)."`
+	RemovePr       bool     `arg:"-x,help:remove PRPOS and PREND tags from INFO (only used with --genotype)."`
 	Bams           []string `arg:"positional,required,help:path to bam(s) to call."`
 }
 
