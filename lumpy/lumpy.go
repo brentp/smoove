@@ -115,9 +115,9 @@ func getMaxDepth() int {
 	}
 	n, err := strconv.Atoi(t)
 	if err != nil {
+		shared.Slogger.Printf("couldn't set max depth to %v. err: %v", t, err)
 		return defaultD
 	}
-	shared.Slogger.Printf("couldn't set max depth to %v", t)
 	return n
 }
 
