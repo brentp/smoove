@@ -14,7 +14,7 @@ RUN apt-get update --fix-missing &&  \
     libcurl4-openssl-dev libffi-dev libblas-dev liblapack-dev \
     libatlas-base-dev libroot-math-mathmore-dev
 
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda2-4.5.11-Linux-x86_64.sh -O ~/miniconda.sh && \
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda2-4.5.12-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh && \
     ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
